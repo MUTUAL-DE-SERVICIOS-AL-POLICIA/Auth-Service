@@ -18,6 +18,7 @@ interface EnvVars {
   LDAP_ACCOUNT_PREFIX: string;
   LDAP_ACCOUNT_SUFFIX: string;
   LDAP_BASEDN: string;
+  JWT_SECRET: string;
 }
 
 const envsSchema = joi
@@ -32,6 +33,7 @@ const envsSchema = joi
     LDAP_ACCOUNT_PREFIX: joi.string().required(),
     LDAP_ACCOUNT_SUFFIX: joi.string().required(),
     LDAP_BASEDN: joi.string().required(),
+    JWT_SECRET: joi.string().required(),
   })
   .unknown(true);
 
@@ -63,4 +65,5 @@ export const envs = {
   ldapAccountPrefix: envVars.LDAP_ACCOUNT_PREFIX,
   ldapAccountSuffix: envVars.LDAP_ACCOUNT_SUFFIX,
   ldapBaseDN: envVars.LDAP_BASEDN,
+  jwtSecret: envVars.JWT_SECRET,
 };

@@ -19,6 +19,7 @@ export class LdapStrategy extends PassportStrategy(Strategy, 'ldap') {
         bindCredentials: envs.ldapAdminPassword, // Contraseña del administrador
         searchBase: envs.ldapBaseDN, // Base de búsqueda LDAP
         searchFilter: '(uid={{username}})', // Filtro de búsqueda, basado en el nombre de usuario
+        searchAttributes: ['uid'],
       },
       credentialsLookup: (req: { username: any; password: any }) => {
         return {
