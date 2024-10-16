@@ -16,11 +16,10 @@ export class AuthService {
 
   async verifyToken(token: string): Promise<boolean> {
     try {
-      const { sub, iat, exp, ...user } = this.jwtService.verify(token, {
+      const { username } = this.jwtService.verify(token, {
         secret: envs.jwtSecret,
       });
-      this.logger.debug('valid token');
-      return true;
+      if (username) return true;
     } catch (error) {
       this.logger.error(error);
       throw new RpcException({
