@@ -14,6 +14,10 @@ export class AuthController {
     const jwt = await this.authService.generateJwt(data.user);
     return {
       access_token: jwt,
+      user: {
+        username: data.user.uid,
+        name: data.user.cn,
+      },
     };
   }
 
