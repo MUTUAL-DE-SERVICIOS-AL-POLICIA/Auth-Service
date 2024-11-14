@@ -24,9 +24,9 @@ export class AuthController {
   @MessagePattern('auth.verify')
   async verify(@Payload() token: string) {
     this.logger.debug('verify');
-    const jwt = await this.authService.verifyToken(token);
+    const username = await this.authService.verifyToken(token);
     return {
-      access_token: jwt,
+      username,
     };
   }
 }

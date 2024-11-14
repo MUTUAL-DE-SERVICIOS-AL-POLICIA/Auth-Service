@@ -14,12 +14,12 @@ export class AuthService {
     return this.jwtService.sign(payload);
   }
 
-  async verifyToken(token: string): Promise<boolean> {
+  async verifyToken(token: string): Promise<string> {
     try {
       const { username } = this.jwtService.verify(token, {
         secret: envs.jwtSecret,
       });
-      if (username) return true;
+      return username;
     } catch (error) {
       this.logger.error(error);
       throw new RpcException({
