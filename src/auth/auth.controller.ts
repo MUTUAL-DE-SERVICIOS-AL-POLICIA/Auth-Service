@@ -11,7 +11,7 @@ export class AuthController {
   @UseGuards(LdapAuthGuard)
   @MessagePattern('auth.login')
   async login(@Payload() data: any) {
-    const jwt = await this.authService.generateJwt(data.user);
+    const jwt = await this.authService.generateJwt(data.user, data.longToken);
     return {
       access_token: jwt,
       user: {
