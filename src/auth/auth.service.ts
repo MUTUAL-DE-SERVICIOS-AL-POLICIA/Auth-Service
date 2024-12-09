@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { RpcException } from '@nestjs/microservices';
-import { envs } from 'src/config';
+import { JwtEnvs } from 'src/config';
 
 @Injectable()
 export class AuthService {
@@ -20,14 +20,14 @@ export class AuthService {
   async verifyToken(token: string): Promise<string> {
     try {
       const { username } = this.jwtService.verify(token, {
-        secret: envs.jwtSecret,
+        secret: JwtEnvs.jwtSecret,
       });
       return username;
     } catch (error) {
       this.logger.error(error);
       throw new RpcException({
-        status: 401,
         message: 'Invalid token',
+        statusCode: 401,
       });
     }
   }
