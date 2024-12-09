@@ -4,11 +4,6 @@ import joi from 'joi';
 interface EnvVars {
   PORT: number;
   NATS_SERVERS: string[];
-  DB_TEST_PASSWORD: string;
-  DB_TEST_NAME: string;
-  DB_TEST_HOST: string;
-  DB_TEST_PORT: number;
-  DB_TEST_USERNAME: string;
   LDAP_AUTHENTICATION: boolean;
   LDAP_HOST: string;
   LDAP_PORT: number;
@@ -48,14 +43,15 @@ if (error) {
 
 const envVars: EnvVars = value;
 
-export const envs = {
+export const PortEnvs = {
   port: envVars.PORT,
+};
+
+export const NastEnvs = {
   natsServers: envVars.NATS_SERVERS,
-  dbTestPassword: envVars.DB_TEST_PASSWORD,
-  dbTestName: envVars.DB_TEST_NAME,
-  dbTestHost: envVars.DB_TEST_HOST,
-  dbTestPort: envVars.DB_TEST_PORT,
-  dbTestUsername: envVars.DB_TEST_USERNAME,
+};
+
+export const LdapEnvs = {
   ldapAuthentication: envVars.LDAP_AUTHENTICATION,
   ldapHost: envVars.LDAP_HOST,
   ldapPort: envVars.LDAP_PORT,
@@ -65,5 +61,8 @@ export const envs = {
   ldapAccountPrefix: envVars.LDAP_ACCOUNT_PREFIX,
   ldapAccountSuffix: envVars.LDAP_ACCOUNT_SUFFIX,
   ldapBaseDN: envVars.LDAP_BASEDN,
+};
+
+export const JwtEnvs = {
   jwtSecret: envVars.JWT_SECRET,
 };
