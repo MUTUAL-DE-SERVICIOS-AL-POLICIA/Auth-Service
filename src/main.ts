@@ -2,7 +2,11 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
-import { envs } from './config';
+import { NastEnvs, PortEnvs } from './config';
+import {
+  RpcCustomExceptionFilter,
+  BadRequestCustomExceptionFilter,
+} from './common';
 
 async function bootstrap() {
   const logger = new Logger('Main');
@@ -12,7 +16,7 @@ async function bootstrap() {
     {
       transport: Transport.NATS,
       options: {
-        servers: envs.natsServers,
+        servers: NastEnvs.natsServers,
       },
     },
   );
@@ -29,7 +33,12 @@ async function bootstrap() {
     }),
   );
 
+  app.useGlobalFilters(
+    new RpcCustomExceptionFilter(),
+    new BadRequestCustomExceptionFilter(),
+  );
+
   await app.listen();
-  logger.log(`Persons Microservice running on port ${envs.port}`);
+  logger.log(`Auth Microservice running on port ${PortEnvs.port}`);
 }
 bootstrap();
