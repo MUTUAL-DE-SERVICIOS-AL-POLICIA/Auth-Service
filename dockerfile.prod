@@ -1,0 +1,17 @@
+FROM node:21-alpine3.19
+
+WORKDIR /usr/src/app
+
+COPY package.json ./
+COPY yarn.lock ./
+
+RUN yarn install
+
+COPY . .
+
+RUN yarn run build
+
+CMD ["node", "dist/main.js"]
+
+# docker build -f dockerfile.prod -t auth-microservice .
+# docker run auth-microservice
