@@ -11,6 +11,9 @@ COPY . .
 
 RUN yarn run build
 
+RUN yarn migration:run
+
+#CMD ["sh", "-c", "yarn migration:run && node dist/main.js"]
 CMD ["node", "dist/main.js"]
 
 # docker build -f dockerfile.prod -t auth-microservice .
