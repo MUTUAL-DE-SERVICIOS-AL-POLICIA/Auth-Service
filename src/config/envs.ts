@@ -21,6 +21,8 @@ interface EnvVars {
   LDAP_ACCOUNT_SUFFIX: string;
   LDAP_BASEDN: string;
   JWT_SECRET: string;
+  PVTBE_USERNAME: string;
+  PVTBE_PASSWORD: string;
 }
 
 const envsSchema = joi
@@ -90,4 +92,9 @@ export const DbEnvs = {
   dbUsername: envVars.DB_USERNAME,
   dbSynchronize: envVars.DB_SYNCHRONIZE,
   dbSchema: envVars.DB_SCHEMA,
+};
+
+export const PvtbeEnvs = {
+  pvtbeUsername: envVars.PVTBE_USERNAME,
+  pvtbePassword: envVars.PVTBE_PASSWORD,
 };
