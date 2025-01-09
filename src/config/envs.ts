@@ -2,7 +2,6 @@ import 'dotenv/config';
 import joi from 'joi';
 
 interface EnvVars {
-  PORT: number;
   NATS_SERVERS: string[];
   DB_PASSWORD: string;
   DB_DATABASE: string;
@@ -27,7 +26,6 @@ interface EnvVars {
 
 const envsSchema = joi
   .object({
-    PORT: joi.number().required(),
     NATS_SERVERS: joi.array().items(joi.string()).required(),
     LDAP_HOST: joi.string().required(),
     LDAP_PORT: joi.number().required(),
@@ -58,10 +56,6 @@ if (error) {
 const envVars: EnvVars = {
   ...value,
   DB_SYNCHRONIZE: value.DB_SYNCHRONIZE === 'true',
-};
-
-export const PortEnvs = {
-  port: envVars.PORT,
 };
 
 export const NastEnvs = {

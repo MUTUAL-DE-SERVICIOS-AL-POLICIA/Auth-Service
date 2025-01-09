@@ -2,7 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
-import { NastEnvs, PortEnvs } from './config';
+import { NastEnvs } from './config';
 import {
   RpcCustomExceptionFilter,
   BadRequestCustomExceptionFilter,
@@ -39,6 +39,5 @@ async function bootstrap() {
   );
 
   await app.listen();
-  logger.log(`Auth Microservice running on port ${PortEnvs.port}`);
 }
 bootstrap();
