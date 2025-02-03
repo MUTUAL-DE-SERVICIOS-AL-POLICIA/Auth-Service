@@ -5,16 +5,10 @@ WORKDIR /usr/src/app
 COPY package.json ./
 COPY yarn.lock ./
 
-RUN yarn install --network-timeout 600000
+RUN yarn install --frozen-lockfile --network-timeout 600000
 
 COPY . .
 
 RUN yarn run build
 
-RUN yarn migration:run
-
-#CMD ["sh", "-c", "yarn migration:run && node dist/main.js"]
 CMD ["node", "dist/main.js"]
-
-# docker build -f dockerfile.prod -t auth-microservice .
-# docker run auth-microservice
