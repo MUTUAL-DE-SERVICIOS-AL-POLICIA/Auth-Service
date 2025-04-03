@@ -19,7 +19,7 @@ export class AuthController {
       const user = {
         uid: 'pvtbe',
       };
-      const jwt = await this.authService.generateJwt(user, false);
+      const jwt = await this.authService.generateJwt(user);
       return {
         access_token: jwt,
         user: {
@@ -28,7 +28,7 @@ export class AuthController {
         },
       };
     }
-    const jwt = await this.authService.generateJwt(data.user, data.longToken);
+    const jwt = await this.authService.generateJwt(data.user);
     return {
       access_token: jwt,
       user: {
@@ -38,12 +38,18 @@ export class AuthController {
     };
   }
 
-  @MessagePattern('auth.verify')
-  async verify(@Payload() token: string) {
-    this.logger.debug('verify');
+  @MessagePattern('auth.verify.token')
+  async verifyToken(@Payload() token: string) {
+    this.logger.debug('verify token');
     const username = await this.authService.verifyToken(token);
     return {
       username,
     };
+  }
+
+  @MessagePattern('auth.verify.apikey')
+  async verifyApiKey(@Payload() apikey: string) {
+    this.logger.debug('verify apikey');
+    return await this.authService.verifyApiKey(apikey);
   }
 }

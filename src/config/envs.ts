@@ -20,6 +20,7 @@ interface EnvVars {
   LDAP_ACCOUNT_SUFFIX: string;
   LDAP_BASEDN: string;
   JWT_SECRET: string;
+  API_KEY: string;
   PVTBE_USERNAME: string;
   PVTBE_PASSWORD: string;
 }
@@ -36,10 +37,8 @@ const envsSchema = joi
     LDAP_ACCOUNT_SUFFIX: joi.string().required(),
     LDAP_BASEDN: joi.string().required(),
     JWT_SECRET: joi.string().required(),
-    DB_SYNCHRONIZE: joi
-      .string()
-      .valid('true', 'false')
-      .default('false'),
+    API_KEY: joi.string().required(),
+    DB_SYNCHRONIZE: joi.string().valid('true', 'false').default('false'),
   })
   .unknown(true);
 
@@ -74,8 +73,9 @@ export const LdapEnvs = {
   ldapBaseDN: envVars.LDAP_BASEDN,
 };
 
-export const JwtEnvs = {
+export const SecretEnvs = {
   jwtSecret: envVars.JWT_SECRET,
+  apiKey: envVars.API_KEY,
 };
 
 export const DbEnvs = {
