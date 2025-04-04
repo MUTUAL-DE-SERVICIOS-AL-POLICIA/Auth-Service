@@ -87,8 +87,3 @@ export const DbEnvs = {
   dbSynchronize: envVars.DB_SYNCHRONIZE,
   dbSchema: envVars.DB_SCHEMA,
 };
-
-export const PvtbeEnvs = {
-  pvtbeUsername: envVars.PVTBE_USERNAME,
-  pvtbePassword: envVars.PVTBE_PASSWORD,
-};

@@ -2,7 +2,6 @@ import { Controller, Logger, UseGuards } from '@nestjs/common';
 import { LdapAuthGuard } from './ldap-auth.guard';
 import { AuthService } from './auth.service';
 import { MessagePattern, Payload } from '@nestjs/microservices';
-import { PvtbeEnvs } from 'src/config';
 
 @Controller('auth')
 export class AuthController {
@@ -12,22 +11,6 @@ export class AuthController {
   @UseGuards(LdapAuthGuard)
   @MessagePattern('auth.login')
   async login(@Payload() data: any) {
-    if (
-      data.username == PvtbeEnvs.pvtbeUsername &&
-      data.password == PvtbeEnvs.pvtbePassword
-    ) {
-      const user = {
-        uid: 'pvtbe',
-      };
-      const jwt = await this.authService.generateJwt(user);
-      return {
-        access_token: jwt,
-        user: {
-          username: 'pvtbe',
-          name: 'pvtbe',
-        },
-      };
-    }
     const jwt = await this.authService.generateJwt(data.user);
     return {
       access_token: jwt,
