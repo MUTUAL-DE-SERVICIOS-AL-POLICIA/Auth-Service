@@ -37,7 +37,7 @@ const envsSchema = joi
     LDAP_ACCOUNT_SUFFIX: joi.string().required(),
     LDAP_BASEDN: joi.string().required(),
     JWT_SECRET: joi.string().required(),
-    API_KEY: joi.string().required(),
+    API_KEY: joi.string(),
     DB_SYNCHRONIZE: joi.string().valid('true', 'false').default('false'),
   })
   .unknown(true);
