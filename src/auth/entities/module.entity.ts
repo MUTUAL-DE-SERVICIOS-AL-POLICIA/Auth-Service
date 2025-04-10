@@ -6,7 +6,6 @@ import {
   PrimaryGeneratedColumn,
 } from 'typeorm';
 import { Role } from './role.entity';
-import { ManagementRole } from './management-role.entity';
 
 @Entity({ schema: 'auth', name: 'modules' })
 export class Module {
@@ -22,7 +21,4 @@ export class Module {
 
   @OneToMany(() => Role, (role) => role.module)
   roles: Role[];
-
-  @OneToMany(() => ManagementRole, (managementRole) => managementRole.module)
-  managementRoles: ManagementRole[];
 }

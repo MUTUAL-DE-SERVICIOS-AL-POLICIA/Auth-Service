@@ -6,7 +6,7 @@ import {
   OneToMany,
   PrimaryGeneratedColumn,
 } from 'typeorm';
-import { Module } from './module.entity';
+import { Unit } from './unit.entity';
 import { UserManagementRole } from './user-management-role.entity';
 
 @Entity({ schema: 'auth', name: 'management_roles' })
@@ -21,8 +21,8 @@ export class ManagementRole {
   @Column()
   name: string;
 
-  @ManyToOne(() => Module, (module) => module.roles)
-  module: Module;
+  @ManyToOne(() => Unit, (unit) => unit.managementRoles)
+  unit: Unit;
 
   @OneToMany(
     () => UserManagementRole,
