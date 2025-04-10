@@ -3,8 +3,10 @@ import { PassportModule } from '@nestjs/passport';
 import { JwtModule } from '@nestjs/jwt';
 import { LdapStrategy } from './strategies/ldap.strategy';
 import { AuthController } from './auth.controller';
+import { LdapController } from '../ldap/ldap.controller';
 import { LdapAuthGuard } from './ldap-auth.guard';
 import { AuthService } from './auth.service';
+import { LdapService } from '../ldap/ldap.service';
 import { SecretEnvs } from 'src/config';
 
 @Module({
@@ -16,7 +18,7 @@ import { SecretEnvs } from 'src/config';
       signOptions: { expiresIn: '4h' },
     }),
   ],
-  controllers: [AuthController],
-  providers: [LdapStrategy, LdapAuthGuard, AuthService],
+  controllers: [AuthController, LdapController],
+  providers: [LdapStrategy, LdapAuthGuard, AuthService, LdapService],
 })
 export class AuthModule {}
