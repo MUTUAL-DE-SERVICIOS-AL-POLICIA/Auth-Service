@@ -20,7 +20,7 @@ export const options: DataSourceOptions & SeederOptions = {
   seeds: ['src/database/seeds/**/*{.ts,.js}'],
   seedTracking: true,
 
-  schema: 'beneficiaries',
+  schema: DbEnvs.dbSchema,
   migrations: ['dist/database/migrations/**/*{.ts,.js}'],
 };
 
