@@ -38,7 +38,14 @@ const envsSchema = joi
     LDAP_BASEDN: joi.string().required(),
     JWT_SECRET: joi.string().required(),
     API_KEY: joi.string(),
+
+    DB_PASSWORD: joi.string().required(),
+    DB_DATABASE: joi.string().required(),
+    DB_HOST: joi.string().required(),
+    DB_PORT: joi.number().required(),
+    DB_USERNAME: joi.string().required(),
     DB_SYNCHRONIZE: joi.string().valid('true', 'false').default('false'),
+    DB_SCHEMA: joi.string().default('beneficiaries'),
   })
   .unknown(true);
 
