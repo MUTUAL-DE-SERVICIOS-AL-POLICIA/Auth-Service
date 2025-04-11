@@ -3,7 +3,6 @@ import { RpcException } from '@nestjs/microservices';
 import { PassportStrategy } from '@nestjs/passport';
 import Strategy from 'passport-ldapauth';
 import { LdapEnvs } from 'src/config';
-import { IncomingMessage } from 'http';
 
 @Injectable()
 export class LdapStrategy extends PassportStrategy(Strategy, 'ldap') {
@@ -22,11 +21,10 @@ export class LdapStrategy extends PassportStrategy(Strategy, 'ldap') {
         searchFilter: '(uid={{username}})', // Filtro de búsqueda, basado en el nombre de usuario
         searchAttributes: ['uid', 'cn'],
       },
-      credentialsLookup: (req: IncomingMessage) => {
-        const body = (req as any).body;
+      credentialsLookup: (req: { username: any; password: any }) => {
         return {
-          username: body.username,
-          password: body.password,
+          username: req.username,
+          password: req.password,
         };
       },
     });
