@@ -18,7 +18,11 @@ export class AuthService {
     const payload = {
       access_token: jwt,
       user: {
-        username: user.username,
+        userData: {
+          username: user.username,
+          userId: user.id,
+          name: user.name,
+        },
         modules: uniqueModules,
         roles: roles,
       },
