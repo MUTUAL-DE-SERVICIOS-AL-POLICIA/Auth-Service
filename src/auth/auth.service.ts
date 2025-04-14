@@ -8,12 +8,27 @@ export class AuthService {
   private readonly logger = new Logger('AuthService');
   constructor(private readonly jwtService: JwtService) {}
 
-  async generateJwt(user: any): Promise<string> {
-    this.logger.debug(user);
-    const payload = { username: user.uid }; // Ajusta el payload con los datos que necesites
-    return this.jwtService.sign(payload);
+  async generateJwtWithUserDetails(user: any): Promise<any> {
+    const jwt = await this.jwtService.sign({ username: user.username });
+    const modules = user.userRoles?.map((ur) => ur.role?.module) || [];
+    const uniqueModules = Array.from(
+      new Map(modules.map((m) => [m.id, { id: m.id, name: m.name }])).values(),
+    );
+    const roles = user.userRoles?.map((ur) => ur.role) || [];
+    const payload = {
+      access_token: jwt,
+      user: {
+        data: {
+          id: user.id,
+          username: user.username,
+          name: user.name,
+        },
+        modules: uniqueModules,
+        roles: roles,
+      },
+    };
+    return payload;
   }
-
   async verifyToken(token: string): Promise<string> {
     try {
       const { username } = this.jwtService.verify(token, {

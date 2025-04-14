@@ -11,14 +11,10 @@ export class AuthController {
   @UseGuards(LdapAuthGuard)
   @MessagePattern('auth.login')
   async login(@Payload() data: any) {
-    const jwt = await this.authService.generateJwt(data.user);
-    return {
-      access_token: jwt,
-      user: {
-        username: data.user.uid,
-        name: data.user.cn,
-      },
-    };
+    const cookieData = await this.authService.generateJwtWithUserDetails(
+      data.user,
+    );
+    return cookieData;
   }
 
   @MessagePattern('auth.verify.token')
