@@ -18,9 +18,9 @@ export class AuthService {
     const payload = {
       access_token: jwt,
       user: {
-        userData: {
+        data: {
+          id: user.id,
           username: user.username,
-          userId: user.id,
           name: user.name,
         },
         modules: uniqueModules,
