@@ -22,11 +22,10 @@ export class LdapStrategy extends PassportStrategy(Strategy, 'ldap') {
         searchFilter: '(uid={{username}})', // Filtro de búsqueda, basado en el nombre de usuario
         searchAttributes: ['uid', 'cn'],
       },
-      credentialsLookup: (req: IncomingMessage) => {
-        const body = (req as any).body;
+      credentialsLookup: (req: { username: any; password: any }) => {
         return {
-          username: body.username,
-          password: body.password,
+          username: req.username,
+          password: req.password,
         };
       },
     });
