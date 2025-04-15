@@ -10,7 +10,9 @@ export class AuthService {
 
   async generateJwt(user: any): Promise<string> {
     this.logger.debug(user);
-    const payload = { username: user.uid }; // Ajusta el payload con los datos que necesites
+    const payload = {
+      username: user.uid,
+    }; // Ajusta el payload con los datos que necesites
     return this.jwtService.sign(payload);
   }
 
