@@ -24,13 +24,13 @@ export class User {
   @Column()
   name: string;
 
-  @Column()
+  @Column({ nullable: true })
   position: string;
 
-  @Column()
+  @Column({ nullable: true })
   cellphone: string;
 
-  @Column({ name: 'identity_card' })
+  @Column({ name: 'identity_card', nullable: true, unique: true })
   identityCard: string;
 
   @CreateDateColumn({ name: 'created_at' })
