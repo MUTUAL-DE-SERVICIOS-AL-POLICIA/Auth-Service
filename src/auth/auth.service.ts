@@ -12,7 +12,18 @@ export class AuthService {
     const jwt = await this.jwtService.sign({ username: user.username });
     const modules = user.userRoles?.map((ur) => ur.role?.module) || [];
     const uniqueModules = Array.from(
-      new Map(modules.map((m) => [m.id, { id: m.id, name: m.name }])).values(),
+      new Map(
+        modules.map((m) => [
+          m.id,
+          {
+            id: m.id,
+            name: m.name,
+            urlProd: m.urlProd,
+            urlDev: m.urlDev,
+            urlManual: m.urlManual,
+          },
+        ]),
+      ).values(),
     );
     const roles = user.userRoles?.map((ur) => ur.role) || [];
     const payload = {
