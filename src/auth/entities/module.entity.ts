@@ -19,6 +19,15 @@ export class Module {
   @Column()
   name: string;
 
+  @Column()
+  urlProd: string;
+
+  @Column()
+  urlDev: string;
+
+  @Column()
+  urlManual: string;
+
   @OneToMany(() => Role, (role) => role.module)
   roles: Role[];
 }
