@@ -10,22 +10,44 @@ export class AuthService {
 
   async generateJwtWithUserDetails(user: any): Promise<any> {
     const jwt = await this.jwtService.sign({ username: user.username });
-    const modules = user.userRoles?.map((ur) => ur.role?.module) || [];
-    const uniqueModules = Array.from(
-      new Map(
-        modules.map((m) => [
-          m.id,
-          {
-            id: m.id,
-            name: m.name,
-            urlProd: m.urlProd,
-            urlDev: m.urlDev,
-            urlManual: m.urlManual,
-          },
-        ]),
-      ).values(),
-    );
-    const roles = user.userRoles?.map((ur) => ur.role) || [];
+    const moduleMap = new Map<
+      number,
+      {
+        id: number;
+        name: string;
+        urlProd: string;
+        urlDev: string;
+        urlManual: string;
+        roles: { id: number; name: string }[];
+      }
+    >();
+
+    for (const userRole of user.userRoles || []) {
+      const role = userRole.role;
+      const module = role.module;
+      if (!moduleMap.has(module.id)) {
+        moduleMap.set(module.id, {
+          id: module.id,
+          name: module.name,
+          urlProd: module.urlProd,
+          urlDev: module.urlDev,
+          urlManual: module.urlManual,
+          roles: [],
+        });
+      }
+      moduleMap.get(module.id).roles.push({
+        id: role.id,
+        name: role.name,
+      });
+    }
+    const modulesOnly = Array.from(moduleMap.values()).map((mod) => ({
+      id: mod.id,
+      name: mod.name,
+      urlProd: mod.urlProd,
+      urlDev: mod.urlDev,
+      urlManual: mod.urlManual,
+    }));
+    const modulesWithRoles = Array.from(moduleMap.values());
     const payload = {
       access_token: jwt,
       user: {
@@ -34,8 +56,8 @@ export class AuthService {
           username: user.username,
           name: user.name,
         },
-        modules: uniqueModules,
-        roles: roles,
+        modules: modulesOnly,
+        modulesWithRoles: modulesWithRoles,
       },
     };
     return payload;
