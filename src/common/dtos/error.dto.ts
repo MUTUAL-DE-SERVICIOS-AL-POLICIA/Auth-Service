@@ -1,5 +1,6 @@
 import {
   IsArray,
+  IsNotEmpty,
   IsNumber,
   IsObject,
   IsOptional,
@@ -9,6 +10,7 @@ import {
 
 export class ErrorDto {
   @IsString()
+  @IsNotEmpty()
   message?: string;
 
   @IsPositive()
@@ -20,5 +22,6 @@ export class ErrorDto {
 
   @IsArray()
   @IsOptional()
+  @IsString({ each: true })
   args?: Array<string>;
 }
