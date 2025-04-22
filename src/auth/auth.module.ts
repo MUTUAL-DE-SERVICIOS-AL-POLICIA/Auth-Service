@@ -8,23 +8,11 @@ import { LdapAuthGuard } from './ldap-auth.guard';
 import { AuthService } from './auth.service';
 import { LdapService } from '../ldap/ldap.service';
 import { SecretEnvs } from 'src/config';
-import { User } from './entities/user.entity';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { ManagementRole } from './entities/management-role.entity';
-import { Role } from './entities/role.entity';
-import { UserRole } from './entities/user-role.entity';
-import { UserManagementRole } from './entities/user-management-role.entity';
+import { UserModule } from 'src/user/user.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([
-      User,
-      ManagementRole,
-      Role,
-      Module,
-      UserRole,
-      UserManagementRole,
-    ]),
+    UserModule,
     PassportModule,
     JwtModule.register({
       global: true,

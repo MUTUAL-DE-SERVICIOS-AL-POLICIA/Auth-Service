@@ -4,8 +4,8 @@ import { PassportStrategy } from '@nestjs/passport';
 import { InjectRepository } from '@nestjs/typeorm';
 import Strategy from 'passport-ldapauth';
 import { LdapEnvs } from 'src/config';
+import { User } from 'src/user/entities/user.entity';
 import { Repository } from 'typeorm';
-import { User } from '../entities/user.entity';
 
 @Injectable()
 export class LdapStrategy extends PassportStrategy(Strategy, 'ldap') {
