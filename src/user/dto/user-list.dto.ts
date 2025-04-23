@@ -2,7 +2,7 @@ import { IsString, IsUUID } from 'class-validator';
 
 export class UserListDto {
   @IsUUID()
-  id: string;
+  uuid: string;
 
   @IsString()
   name: string;
