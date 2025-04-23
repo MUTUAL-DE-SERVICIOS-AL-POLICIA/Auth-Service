@@ -1,6 +1,6 @@
 import { Controller } from '@nestjs/common';
 import { MessagePattern } from '@nestjs/microservices';
-import { LdapService } from '../ldap/ldap.service';
+import { LdapService } from './ldap.service';
 
 /**
  * Controlador para manejar las operaciones LDAP en el microservicio de autenticación
