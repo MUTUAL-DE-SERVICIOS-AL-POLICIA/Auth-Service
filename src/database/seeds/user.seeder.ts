@@ -16,8 +16,6 @@ export default class UserSeeder implements Seeder {
         first_name,
         last_name,
         position,
-        phone,
-        identity_card,
         created_at
       FROM public.users
     `);
@@ -34,8 +32,6 @@ export default class UserSeeder implements Seeder {
         username: user.username,
         name: `${user.first_name} ${user.last_name}`,
         position: user.position,
-        cellphone: user.phone,
-        identityCard: user.identity_card,
         createdAt: new Date(user.created_at),
         uuid: crypto.randomUUID(),
       }),
