@@ -3,10 +3,10 @@ import { PassportModule } from '@nestjs/passport';
 import { JwtModule } from '@nestjs/jwt';
 import { LdapStrategy } from './strategies/ldap.strategy';
 import { AuthController } from './auth.controller';
-import { LdapController } from '../ldap/ldap.controller';
+import { LdapController } from '../user/ldap/ldap.controller';
 import { LdapAuthGuard } from './ldap-auth.guard';
 import { AuthService } from './auth.service';
-import { LdapService } from '../ldap/ldap.service';
+import { LdapService } from '../user/ldap/ldap.service';
 import { SecretEnvs } from 'src/config';
 import { UserModule } from 'src/user/user.module';
 
