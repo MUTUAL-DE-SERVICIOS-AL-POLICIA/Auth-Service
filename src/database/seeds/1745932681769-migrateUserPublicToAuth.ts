@@ -3,11 +3,12 @@ import { DataSource } from 'typeorm';
 import { User } from 'src/user/entities/user.entity';
 import * as crypto from 'crypto';
 
-export default class UserSeeder implements Seeder {
-  async run(dataSource: DataSource): Promise<void> {
-    const repo = dataSource.getRepository(User);
+export class MigrateUserPublicToAuth implements Seeder {
+  // Habilitar el tracking para registrar la ejecución en la tabla `seeds`
+  track = true;
 
-    //pendiente normalizar el position
+  public async run(dataSource: DataSource): Promise<void> {
+    const repo = dataSource.getRepository(User);
 
     // Consulta los usuarios directamente desde el schema public
     const rawUsers = await dataSource.query(`
@@ -20,13 +21,11 @@ export default class UserSeeder implements Seeder {
       FROM public.users
     `);
 
-    // Verifica si hay datos válidos
     if (!rawUsers.length) {
       console.log('No se encontraron usuarios válidos en public.users');
       return;
     }
 
-    // Transforma los datos a la entidad auth.users
     const parsedUsers = rawUsers.map((user: any) =>
       repo.create({
         username: user.username,

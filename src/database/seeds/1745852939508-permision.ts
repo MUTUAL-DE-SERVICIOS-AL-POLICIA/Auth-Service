@@ -2,8 +2,11 @@ import { Seeder } from 'typeorm-extension';
 import { DataSource } from 'typeorm';
 import { Permision } from 'src/user/entities/permision.entity';
 
-export default class PermisionSeeder implements Seeder {
-  async run(dataSource: DataSource): Promise<void> {
+export class PermisionSeeder implements Seeder {
+  // Habilitar el tracking para registrar la ejecución en la tabla `seeds`
+  track = true;
+
+  public async run(dataSource: DataSource): Promise<void> {
     const permisionRepository = dataSource.getRepository(Permision);
 
     console.log('Verificando permisos existentes...');
@@ -15,6 +18,7 @@ export default class PermisionSeeder implements Seeder {
       );
       return;
     }
+
     const staticPermisions = [
       // Auth
       {
