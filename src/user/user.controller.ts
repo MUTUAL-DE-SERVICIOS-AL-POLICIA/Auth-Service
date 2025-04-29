@@ -19,7 +19,7 @@ export class UserController {
     return this.userService.findOne(data.uuid);
   }
 
-  @MessagePattern('user.ManagementRolesByUser')
+  @MessagePattern('user.managementRolesByUser')
   async getUserManagementRoles(userId: any): Promise<ManagementRoleDto[]> {
     return this.userService.getManagementRoles(userId.userId);
   }
