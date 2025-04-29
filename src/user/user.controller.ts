@@ -9,19 +9,18 @@ import { ManagementRoleDto } from './dto/management-rol-dto';
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
-  @MessagePattern('get_all_users')
+  @MessagePattern('user.getAll')
   async findAll(): Promise<UserListDto[]> {
     return this.userService.findAll();
   }
 
-  @MessagePattern('get_user')
+  @MessagePattern('user.getByUuid')
   async findOne(@Payload() data: { uuid: string }): Promise<UserDetailDto> {
     return this.userService.findOne(data.uuid);
   }
 
-  @MessagePattern('get_user_management_roles')
+  @MessagePattern('user.ManagementRolesByUser')
   async getUserManagementRoles(userId: any): Promise<ManagementRoleDto[]> {
-    console.log('El usuario autenticado es:', userId.userId);
-    return this.userService.getUserManagementRoles(userId.userId);
+    return this.userService.getManagementRoles(userId.userId);
   }
 }
