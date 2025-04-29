@@ -37,7 +37,7 @@ export class UserService {
     return plainToInstance(UserDetailDto, user);
   }
 
-  async getUserManagementRoles(userId: any): Promise<ManagementRoleDto[]> {
+  async getManagementRoles(userId: any): Promise<ManagementRoleDto[]> {
     const userWithRoles = await this.userRepository.findOne({
       where: { id: userId },
       relations: ['userManagementRoles', 'userManagementRoles.managementRole'],
