@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { RpcException } from '@nestjs/microservices';
 import { SecretEnvs } from 'src/config';
+import { JwtPayload } from './interfaces/jwt-payload.interface';
 
 @Injectable()
 export class AuthService {
@@ -9,7 +10,10 @@ export class AuthService {
   constructor(private readonly jwtService: JwtService) {}
 
   async generateJwtWithUserDetails(user: any): Promise<any> {
-    const jwt = await this.jwtService.sign({ username: user.username });
+    const tokenPayload: JwtPayload = {
+      user: { id: user.id, username: user.username, name: user.name },
+    };
+    const jwt = await this.jwtService.sign(tokenPayload);
     const moduleMap = new Map<
       number,
       {
@@ -64,10 +68,10 @@ export class AuthService {
   }
   async verifyToken(token: string): Promise<string> {
     try {
-      const { username } = this.jwtService.verify(token, {
+      const { user } = this.jwtService.verify(token, {
         secret: SecretEnvs.jwtSecret,
       });
-      return username;
+      return user;
     } catch (error) {
       this.logger.error(error);
       throw new RpcException({
