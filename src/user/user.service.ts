@@ -16,7 +16,7 @@ export class UserService {
 
   async findAll(): Promise<UserListDto[]> {
     const users = await this.userRepository.find({
-      select: ['uuid', 'username', 'name'],
+      select: ['uuid', 'position', 'name'],
     });
     return plainToInstance(UserListDto, users);
   }
