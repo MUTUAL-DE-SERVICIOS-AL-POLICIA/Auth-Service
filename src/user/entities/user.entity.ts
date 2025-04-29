@@ -27,12 +27,6 @@ export class User {
   @Column({ nullable: true })
   position: string;
 
-  @Column({ nullable: true })
-  cellphone: string;
-
-  @Column({ name: 'identity_card', nullable: true, unique: true })
-  identityCard: string;
-
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
