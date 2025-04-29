@@ -24,14 +24,7 @@ export class UserService {
   async findOne(uuid: string): Promise<UserDetailDto> {
     const user = await this.userRepository.findOne({
       where: { uuid },
-      select: [
-        'uuid',
-        'username',
-        'name',
-        'cellphone',
-        'identityCard',
-        'position',
-      ],
+      select: ['uuid', 'username', 'name', 'position'],
     });
 
     if (!user) {
