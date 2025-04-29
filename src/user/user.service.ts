@@ -6,6 +6,7 @@ import { UserListDto } from './dto/user-list.dto';
 import { plainToInstance } from 'class-transformer';
 import { UserDetailDto } from './dto/user-detail.dto';
 import { RpcException } from '@nestjs/microservices';
+import { ManagementRoleDto } from './dto/management-rol-dto';
 
 @Injectable()
 export class UserService {
@@ -16,7 +17,7 @@ export class UserService {
 
   async findAll(): Promise<UserListDto[]> {
     const users = await this.userRepository.find({
-      select: ['uuid', 'username', 'name'],
+      select: ['uuid', 'position', 'name'],
     });
     return plainToInstance(UserListDto, users);
   }
@@ -34,5 +35,26 @@ export class UserService {
       });
     }
     return plainToInstance(UserDetailDto, user);
+  }
+
+  async getManagementRoles(userId: any): Promise<ManagementRoleDto[]> {
+    const userWithRoles = await this.userRepository.findOne({
+      where: { id: userId },
+      relations: ['userManagementRoles', 'userManagementRoles.managementRole'],
+      select: {
+        id: true,
+        userManagementRoles: {
+          id: true,
+          managementRole: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
+    return userWithRoles.userManagementRoles.map((umr) => ({
+      id: umr.managementRole.id,
+      name: umr.managementRole.name,
+    }));
   }
 }
