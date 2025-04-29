@@ -1,12 +1,8 @@
-import { IsString, IsUUID } from 'class-validator';
+import { UserDto } from './user.dto';
+import { PickType } from '@nestjs/mapped-types';
 
-export class UserListDto {
-  @IsUUID()
-  uuid: string;
-
-  @IsString()
-  name: string;
-
-  @IsString()
-  username: string;
-}
+export class UserListDto extends PickType(UserDto, [
+  'uuid',
+  'position',
+  'name',
+] as const) {}
