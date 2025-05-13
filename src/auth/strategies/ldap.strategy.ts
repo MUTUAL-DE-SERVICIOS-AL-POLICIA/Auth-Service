@@ -40,14 +40,8 @@ export class LdapStrategy extends PassportStrategy(Strategy, 'ldap') {
     // Aquí puedes personalizar lo que devuelves después de la autenticación exitosa
     const userAuth = await this.userRepository.findOne({
       where: { username: user.uid },
-      relations: [
-        'userManagementRoles',
-        'userRoles',
-        'userRoles.role',
-        'userRoles.role.module',
-      ],
+      relations: ['userManagementModules', 'userRoles', 'userRoles.role'],
     });
-
     if (!userAuth) {
       throw new RpcException({ message: 'user not found', statusCode: 401 });
     }
