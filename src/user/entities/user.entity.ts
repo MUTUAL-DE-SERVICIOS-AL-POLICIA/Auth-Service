@@ -7,7 +7,7 @@ import {
   OneToMany,
 } from 'typeorm';
 import { UserRole } from './user-role.entity';
-import { UserManagementRole } from './user-management-role.entity';
+import { UserManagementModule } from './user-management-module.entity';
 
 @Entity({ schema: 'auth', name: 'users' })
 export class User {
@@ -37,8 +37,8 @@ export class User {
   createdUserRoles: UserRole[];
 
   @OneToMany(
-    () => UserManagementRole,
-    (userManagementRole) => userManagementRole.user,
+    () => UserManagementModule,
+    (userManagementModule) => userManagementModule.user,
   )
-  userManagementRoles: UserManagementRole[];
+  userManagementModules: UserManagementModule[];
 }
