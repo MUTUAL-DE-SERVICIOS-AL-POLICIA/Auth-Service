@@ -3,55 +3,24 @@ import { JwtService } from '@nestjs/jwt';
 import { RpcException } from '@nestjs/microservices';
 import { SecretEnvs } from 'src/config';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
+import { User } from 'src/user/entities/user.entity';
+import { UserService } from 'src/user/user.service';
 
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger('AuthService');
-  constructor(private readonly jwtService: JwtService) {}
+  constructor(
+    private readonly jwtService: JwtService,
+    private readonly userService: UserService,
+  ) {}
 
-  async generateJwtWithUserDetails(user: any): Promise<any> {
+  async generateJwtWithUserDetails(user: User): Promise<any> {
     const tokenPayload: JwtPayload = {
       user: { id: user.id, username: user.username, name: user.name },
     };
     const jwt = await this.jwtService.sign(tokenPayload);
-    const moduleMap = new Map<
-      number,
-      {
-        id: number;
-        name: string;
-        urlProd: string;
-        urlDev: string;
-        urlManual: string;
-        roles: { id: number; name: string }[];
-      }
-    >();
-
-    for (const userRole of user.userRoles || []) {
-      const role = userRole.role;
-      const module = role.module;
-      if (!moduleMap.has(module.id)) {
-        moduleMap.set(module.id, {
-          id: module.id,
-          name: module.name,
-          urlProd: module.urlProd,
-          urlDev: module.urlDev,
-          urlManual: module.urlManual,
-          roles: [],
-        });
-      }
-      moduleMap.get(module.id).roles.push({
-        id: role.id,
-        name: role.name,
-      });
-    }
-    const modulesOnly = Array.from(moduleMap.values()).map((mod) => ({
-      id: mod.id,
-      name: mod.name,
-      urlProd: mod.urlProd,
-      urlDev: mod.urlDev,
-      urlManual: mod.urlManual,
-    }));
-    const modulesWithRoles = Array.from(moduleMap.values());
+    const modulesWithRoles = await this.userService.getModulesAndRoles(user);
+    const modulesOnly = await this.userService.getModulesWithoutRoles(user);
     const payload = {
       access_token: jwt,
       user: {
