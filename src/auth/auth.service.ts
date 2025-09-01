@@ -12,7 +12,7 @@ export class AuthService {
     this.logger.debug(user);
     const payload = {
       username: user.uid,
-    }; // Ajusta el payload con los datos que necesites
+    };
     return this.jwtService.sign(payload);
   }
 
