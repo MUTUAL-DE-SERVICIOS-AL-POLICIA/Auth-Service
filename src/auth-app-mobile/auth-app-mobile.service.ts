@@ -58,11 +58,25 @@ export class AuthAppMobileService {
       };
     }
 
+    let affiliate = null;
+    affiliate = await this.nats.firstValueInclude(
+      { affiliateId: affiliateId },
+      'affiliate.findOneData',
+      ['degree', 'category', 'affiliateState'],
+    );
+
+    const { id, name } = affiliate.affiliateState;
+
+    if (id != 4 && name != 'Fallecido' && !isPolice) {
+      return {
+        error: true,
+        message: 'La persona titular no se encuentra fallecida, pasar por oficinas de la MUSERPOL',
+      };
+    }
+
     const pensionEntityId = isPolice
       ? person.pensionEntityId
       : validateWhoIsThePerson.pensionEntityId;
-
-    let affiliate = null;
     let pensionEntities = null;
 
     const validateBeneficiaryEcoCom = await this.nats.firstValue(
@@ -77,11 +91,7 @@ export class AuthAppMobileService {
 
     const { message: messageEcoCom, data: dataEcoCom } =
       validateBeneficiaryEcoCom;
-    affiliate = await this.nats.firstValueInclude(
-      { affiliateId: affiliateId },
-      'affiliate.findOneData',
-      ['degree', 'category'],
-    );
+    
 
     if (!affiliate.serviceStatus)
       throw new RpcException({
@@ -143,8 +153,8 @@ export class AuthAppMobileService {
     if (isBiometric) {
       this.logger.log('Login AppMobile con huella dactilar');
       return {
-        error: !serviceStatus,
-        message: validateWhoIsThePerson.message,
+        error: false,
+        message: validateWhoIsThePerson.message+' Login mediante huella dactilar',
         data,
       };
     }
@@ -164,7 +174,7 @@ export class AuthAppMobileService {
     this.logger.log('Login AppMobile con envío de sms');
     return {
       error: !status,
-      message: message,
+      message: message + ' Login mediante SMS',
       messageId,
     };
   }
@@ -195,7 +205,7 @@ export class AuthAppMobileService {
 
     return {
       error: false,
-      message: 'Pin verificado',
+      message: 'Pin verificado, Inicio de sesión con envío de sms',
       data: {
         apiToken: data.apiToken,
         information,
