@@ -159,7 +159,7 @@ export class AuthAppMobileService {
       };
     }
     const pin = Math.floor(1000 + Math.random() * 9000).toString();
-    const messageSend = `Tu codigo de verificacion es: ${pin}\n#muserpolpvt ${signature}`;
+    const messageSend = `Tu pin de seguridad es: ${pin}\n#muserpolpvt ${signature}`;
     const cellphoneCodePostal = `591${cellphone}`;
     data.information['pin'] = pin;
     const { status, message, messageId } = await this.nats.firstValue(
