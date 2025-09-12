@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { NatsService } from 'src/common';
 import { RpcException } from '@nestjs/microservices';
+import { TestDeviceEnvs } from 'src/config';
 
 @Injectable()
 export class AuthAppMobileService {
@@ -16,13 +17,20 @@ export class AuthAppMobileService {
       isBiometric,
       isRegisterCellphone,
     } = body;
-
+    let directAccess = false;
+    if (
+      TestDeviceEnvs.userTestDevice === username &&
+      TestDeviceEnvs.userTestAccess === true
+    ) {
+      directAccess = true;
+    }
     const validatePersonSms = await this.nats.firstValue(
       'person.validatePersonSms',
       {
         identityCard: username,
         cellphone,
         isRegisterCellphone,
+        directAccess,
       },
     );
 
@@ -150,6 +158,13 @@ export class AuthAppMobileService {
         verified,
       },
     };
+    if(directAccess) {
+      return {
+        error: false,
+        message: validateWhoIsThePerson.message+' Login de prueba',
+        data,
+      };
+    }
     if (isBiometric) {
       this.logger.log('Login AppMobile con huella dactilar');
       return {
