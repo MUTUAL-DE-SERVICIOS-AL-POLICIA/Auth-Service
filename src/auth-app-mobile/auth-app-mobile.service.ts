@@ -78,7 +78,8 @@ export class AuthAppMobileService {
     if (id != 4 && name != 'Fallecido' && !isPolice) {
       return {
         error: true,
-        message: 'La persona titular no se encuentra fallecida, pasar por oficinas de la MUSERPOL',
+        message:
+          'La persona titular no se encuentra fallecida, pasar por oficinas de la MUSERPOL',
       };
     }
 
@@ -99,7 +100,6 @@ export class AuthAppMobileService {
 
     const { message: messageEcoCom, data: dataEcoCom } =
       validateBeneficiaryEcoCom;
-    
 
     if (!affiliate.serviceStatus)
       throw new RpcException({
@@ -158,10 +158,10 @@ export class AuthAppMobileService {
         verified,
       },
     };
-    if(directAccess) {
+    if (directAccess) {
       return {
         error: false,
-        message: validateWhoIsThePerson.message+' Login de prueba',
+        message: validateWhoIsThePerson.message + ' Login de prueba',
         data,
       };
     }
@@ -169,7 +169,8 @@ export class AuthAppMobileService {
       this.logger.log('Login AppMobile con huella dactilar');
       return {
         error: false,
-        message: validateWhoIsThePerson.message+' Login mediante huella dactilar',
+        message:
+          validateWhoIsThePerson.message + ' Login mediante huella dactilar',
         data,
       };
     }
