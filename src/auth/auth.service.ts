@@ -12,16 +12,17 @@ export class AuthService {
     this.logger.debug(user);
     const payload = {
       username: user.uid,
-    }; // Ajusta el payload con los datos que necesites
+      name: user.cn,
+    };
     return this.jwtService.sign(payload);
   }
 
   async verifyToken(token: string): Promise<string> {
     try {
-      const { username } = this.jwtService.verify(token, {
+      const user = this.jwtService.verify(token, {
         secret: SecretEnvs.jwtSecret,
       });
-      return username;
+      return user;
     } catch (error) {
       this.logger.error(error);
       throw new RpcException({

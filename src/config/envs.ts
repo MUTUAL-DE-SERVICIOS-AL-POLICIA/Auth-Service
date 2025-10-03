@@ -23,6 +23,8 @@ interface EnvVars {
   API_KEY: string;
   PVTBE_USERNAME: string;
   PVTBE_PASSWORD: string;
+  USER_TEST_DEVICE: string;
+  USER_TEST_ACCESS: boolean;
 }
 
 const envsSchema = joi
@@ -38,6 +40,8 @@ const envsSchema = joi
     LDAP_BASEDN: joi.string().required(),
     JWT_SECRET: joi.string().required(),
     API_KEY: joi.string(),
+    USER_TEST_DEVICE: joi.string(),
+    USER_TEST_ACCESS: joi.boolean().default(false),
 
     DB_PASSWORD: joi.string().required(),
     DB_DATABASE: joi.string().required(),
@@ -93,4 +97,9 @@ export const DbEnvs = {
   dbUsername: envVars.DB_USERNAME,
   dbSynchronize: envVars.DB_SYNCHRONIZE,
   dbSchema: envVars.DB_SCHEMA,
+};
+
+export const TestDeviceEnvs = {
+  userTestDevice: envVars.USER_TEST_DEVICE,
+  userTestAccess: envVars.USER_TEST_ACCESS,
 };
