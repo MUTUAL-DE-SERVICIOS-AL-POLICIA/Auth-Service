@@ -18,7 +18,6 @@ export class AuthAppMobileService {
       isRegisterCellphone,
     } = body;
     let directAccess = false;
-    console.log(TestDeviceEnvs);
     if (
       TestDeviceEnvs.userTestDevice === username &&
       TestDeviceEnvs.userTestAccess === true
