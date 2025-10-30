@@ -210,12 +210,12 @@ export class AuthAppMobileService {
       };
     }
 
-    if (!data.information || typeof data.information.pin === 'undefined') {
-      return {
-        error: true,
-        message: 'El pin ha expirado, vuelva a iniciar sesión',
-      };
-    }
+    // if (!data.information || typeof data.information.pin === 'undefined') {
+    //   return {
+    //     error: true,
+    //     message: 'El pin ha expirado, vuelva a iniciar sesión',
+    //   };
+    // }
 
     const { pin: expectedPin, ...information } = data.information;
 
