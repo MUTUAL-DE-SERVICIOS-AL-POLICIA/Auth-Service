@@ -210,6 +210,7 @@ export class AuthAppMobileService {
       };
     }
 
+    // DESCOMENTAR CUANDO SE SOLUCIONE BUG EN LA APP MOVIL DE VERIFICACION AL AUTOCOMPLETAR
     // if (!data.information || typeof data.information.pin === 'undefined') {
     //   return {
     //     error: true,
