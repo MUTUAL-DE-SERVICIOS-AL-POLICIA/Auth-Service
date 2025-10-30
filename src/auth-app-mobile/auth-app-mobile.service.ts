@@ -210,12 +210,13 @@ export class AuthAppMobileService {
       };
     }
 
-    if (!data.information || typeof data.information.pin === 'undefined') {
-      return {
-        error: true,
-        message: 'El pin ha expirado, vuelva a iniciar sesión',
-      };
-    }
+    // DESCOMENTAR CUANDO SE SOLUCIONE BUG EN LA APP MOVIL DE VERIFICACION AL AUTOCOMPLETAR
+    // if (!data.information || typeof data.information.pin === 'undefined') {
+    //   return {
+    //     error: true,
+    //     message: 'El pin ha expirado, vuelva a iniciar sesión',
+    //   };
+    // }
 
     const { pin: expectedPin, ...information } = data.information;
 
