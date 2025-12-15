@@ -10,7 +10,6 @@ export class AuthAppMobileService {
 
   async loginAppMobile(body: any): Promise<any> {
     const {
-      username,
       countryCode,
       signature,
       firebaseToken,
@@ -18,10 +17,9 @@ export class AuthAppMobileService {
       isCitizenshipDigital,
       citizenshipDigitalCode,
       citizenshipDigitalCodeVerifier,
-      isRegisterCellphone,
     } = body;
 
-    let { cellphone } = body;
+    let { username, cellphone, isRegisterCellphone } = body;
 
     let directAccess = false;
     if (
