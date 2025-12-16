@@ -20,8 +20,10 @@ export class AuthAppMobileService {
     } = body;
 
     let { username, cellphone, isRegisterCellphone } = body;
-
     let directAccess = false;
+    let logoutUrl = null;
+    let profile = null;
+
     if (
       TestDeviceEnvs.userTestDevice === username &&
       TestDeviceEnvs.userTestAccess === true
@@ -29,11 +31,9 @@ export class AuthAppMobileService {
       directAccess = true;
     }
 
-    let logoutUrl = null;
     if (isCitizenshipDigital) {
       const {
-        profile,
-        cellphone: cellphoneOne,
+        profile: profileData,
         urlLogout,
         serviceStatus,
       } = await this.nats.firstValue('citizenshipDigital.findPerson', {
@@ -47,8 +47,9 @@ export class AuthAppMobileService {
         });
       }
 
-      username = profile.documento_identidad.numero_documento;
-      cellphone = cellphoneOne;
+      username = profileData.identityCard;
+      cellphone = profileData.cellphone;
+      profile = profileData;
       isRegisterCellphone = true;
       logoutUrl = urlLogout;
     }
@@ -209,7 +210,7 @@ export class AuthAppMobileService {
       };
     }
     if (isCitizenshipDigital) {
-      return {
+      const res = {
         error: false,
         logoutUrl,
         message:
@@ -217,6 +218,27 @@ export class AuthAppMobileService {
           ' Inicio de sesión mediante ciudadanía digital',
         data,
       };
+
+      void this.nats.emit(`person.update`, {
+        id: person.id,
+        data: profile,
+      });
+
+      void this.nats.emit(`appMobile.record.create`, {
+        action: 'POST: AppMobileController.updatePerson',
+        input: {
+          user: {
+            fullName,
+            identityCard: person.identityCard,
+            personId: person.id,
+            affiliateId: affiliateId,
+          },
+          ...profile,
+        },
+        output: res,
+      });
+
+      return res;
     }
     const pin = Math.floor(1000 + Math.random() * 9000).toString();
     const messageSend = `Tu pin de seguridad es: ${pin} \n#muserpolpvt `;
