@@ -80,4 +80,12 @@ export class NatsService {
       serviceStatus: data.serviceStatus,
     };
   }
+
+  async emit(service: string, data: any): Promise<void> {
+    try {
+      this.client.emit(service, data);
+    } catch (error) {
+      this.logger.error(`Failed to emit event to [${service}]`, error.stack);
+    }
+  }
 }
