@@ -3,7 +3,6 @@ import { RpcException } from '@nestjs/microservices';
 import { PassportStrategy } from '@nestjs/passport';
 import Strategy from 'passport-ldapauth';
 import { LdapEnvs } from 'src/config';
-import { IncomingMessage } from 'http';
 
 @Injectable()
 export class LdapStrategy extends PassportStrategy(Strategy, 'ldap') {
