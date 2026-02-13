@@ -21,6 +21,7 @@ export class LdapStrategy extends PassportStrategy(Strategy, 'ldap') {
         searchFilter: '(uid={{username}})', // Filtro de búsqueda, basado en el nombre de usuario
         searchAttributes: ['uid', 'cn'],
       },
+      // @ts-ignore
       credentialsLookup: (req: { username: any; password: any }) => {
         return {
           username: req.username,

@@ -1,10 +1,7 @@
-import { config } from 'dotenv';
 import { DataSource, DataSourceOptions } from 'typeorm';
 import { SeederOptions } from 'typeorm-extension';
 import { SnakeNamingStrategy } from 'typeorm-naming-strategies';
 import { DbEnvs } from 'src/config';
-
-config();
 
 export const options: DataSourceOptions & SeederOptions = {
   type: 'postgres',
