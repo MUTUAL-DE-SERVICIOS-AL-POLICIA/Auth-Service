@@ -1,10 +1,10 @@
-FROM node:24.4.1-alpine3.21
+FROM node:24.13.0-alpine3.22
 
 WORKDIR /app
 
 COPY package.json ./
-COPY yarn.lock ./
+COPY pnpm-lock.yaml ./
 
-RUN yarn install
+RUN corepack enable pnpm && pnpm i --frozen-lockfile
 
 COPY . .
