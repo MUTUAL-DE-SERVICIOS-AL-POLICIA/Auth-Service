@@ -10,6 +10,7 @@ export class LdapAuthGuard extends AuthGuard('ldap') {
   }
   handleRequest(err, user) {
     if (err || !user) {
+      // Puedes personalizar el mensaje de error aquí
       throw err || new RpcException('Credenciales inválidas');
     }
     return user;

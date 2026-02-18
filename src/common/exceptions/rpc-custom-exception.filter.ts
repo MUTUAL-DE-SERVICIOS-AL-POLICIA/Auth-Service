@@ -20,6 +20,7 @@ export class RpcCustomExceptionFilter implements ExceptionFilter {
       if (e != null) return e;
     });
     this.logger.error(JSON.stringify(error));
+
     return throwError(() => error ?? 'Internal server error');
   }
 }
