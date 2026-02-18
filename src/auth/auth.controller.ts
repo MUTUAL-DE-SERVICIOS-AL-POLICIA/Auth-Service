@@ -23,12 +23,14 @@ export class AuthController {
 
   @MessagePattern('auth.verify.token')
   async verifyToken(@Payload() token: string) {
+    this.logger.debug('verify token');
     const user = await this.authService.verifyToken(token);
     return user;
   }
 
   @MessagePattern('auth.verify.apikey')
   async verifyApiKey(@Payload() apikey: string) {
+    this.logger.debug('verify apikey');
     return await this.authService.verifyApiKey(apikey);
   }
 }
