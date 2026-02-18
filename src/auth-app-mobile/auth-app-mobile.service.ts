@@ -10,20 +10,50 @@ export class AuthAppMobileService {
 
   async loginAppMobile(body: any): Promise<any> {
     const {
-      username,
-      cellphone,
+      countryCode,
       signature,
       firebaseToken,
       isBiometric,
-      isRegisterCellphone,
+      isCitizenshipDigital,
+      citizenshipDigitalCode,
+      citizenshipDigitalCodeVerifier,
     } = body;
+
+    let { username, cellphone, isRegisterCellphone } = body;
     let directAccess = false;
+    let logoutUrl = null;
+    let profile = null;
+
     if (
       TestDeviceEnvs.userTestDevice === username &&
       TestDeviceEnvs.userTestAccess === true
     ) {
       directAccess = true;
     }
+
+    if (isCitizenshipDigital) {
+      const {
+        profile: profileData,
+        urlLogout,
+        serviceStatus,
+      } = await this.nats.firstValue('citizenshipDigital.findPerson', {
+        code: citizenshipDigitalCode,
+        codeVerifier: citizenshipDigitalCodeVerifier,
+      });
+      if (!serviceStatus) {
+        throw new RpcException({
+          message: 'Error en el servicio citizenshipDigital.findPerson',
+          code: 401,
+        });
+      }
+
+      username = profileData.identityCard;
+      cellphone = profileData.cellphone;
+      profile = profileData;
+      isRegisterCellphone = true;
+      logoutUrl = urlLogout;
+    }
+
     const validatePersonSms = await this.nats.firstValue(
       'person.validatePersonSms',
       {
@@ -41,7 +71,8 @@ export class AuthAppMobileService {
       });
     if (!validatePersonSms.validateStatus) {
       return {
-        error: !validatePersonSms.validateStatus,
+        error: true,
+        logoutUrl,
         message: validatePersonSms.message,
       };
     }
@@ -61,7 +92,8 @@ export class AuthAppMobileService {
       });
     if (!validateWhoIsThePerson.validateStatus) {
       return {
-        error: !validateWhoIsThePerson.validateStatus,
+        error: true,
+        logoutUrl,
         message: validateWhoIsThePerson.message,
       };
     }
@@ -78,6 +110,7 @@ export class AuthAppMobileService {
     if (id != 4 && name != 'Fallecido' && !isPolice) {
       return {
         error: true,
+        logoutUrl,
         message:
           'La persona titular no se encuentra fallecida, pasar por oficinas de la MUSERPOL',
       };
@@ -143,6 +176,7 @@ export class AuthAppMobileService {
       information: {
         fullName,
         identityCard: person.identityCard,
+        cellphone,
         isPolice,
         kinship: kinship?.serviceStatus ? kinship.name : 's/n',
         affiliateId,
@@ -161,36 +195,83 @@ export class AuthAppMobileService {
     if (directAccess) {
       return {
         error: false,
-        message: validateWhoIsThePerson.message + ' Login de prueba',
+        message:
+          validateWhoIsThePerson.message + ', Inicio de sesión para pruebas',
         data,
       };
     }
     if (isBiometric) {
-      this.logger.log('Login AppMobile con huella dactilar');
       return {
         error: false,
         message:
-          validateWhoIsThePerson.message + ' Login mediante huella dactilar',
+          validateWhoIsThePerson.message +
+          ' Inicio de sesión mediante huella dactilar',
         data,
       };
     }
+    if (isCitizenshipDigital) {
+      const res = {
+        error: false,
+        logoutUrl,
+        message:
+          validateWhoIsThePerson.message +
+          ' Inicio de sesión mediante ciudadanía digital',
+        data,
+      };
+
+      void this.nats.emit(`person.update`, {
+        id: person.id,
+        data: profile,
+      });
+
+      void this.nats.emit(`appMobile.record.create`, {
+        action: 'POST: AppMobileController.updatePerson',
+        input: {
+          user: {
+            fullName,
+            identityCard: person.identityCard,
+            personId: person.id,
+            affiliateId: affiliateId,
+          },
+          ...profile,
+        },
+        output: res,
+      });
+
+      return res;
+    }
     const pin = Math.floor(1000 + Math.random() * 9000).toString();
-    const messageSend = `Tu pin de seguridad es: ${pin}\n#muserpolpvt ${signature}`;
-    const cellphoneCodePostal = `591${cellphone}`;
+    const messageSend = `Tu pin de seguridad es: ${pin} \n#muserpolpvt `;
+    const cellphoneCodePostal = `${countryCode}${cellphone}`;
     data.information['pin'] = pin;
-    const { status, message, messageId } = await this.nats.firstValue(
-      'sms.send',
-      { cellphone: cellphoneCodePostal, message: messageSend },
-    );
+    let responseSend: any;
+
+    if (countryCode != '+591') {
+      responseSend = await this.nats.firstValue('whatsapp.send', {
+        cellphone: cellphoneCodePostal,
+        message: messageSend,
+      });
+      data.information['typeAuth'] = 'whatsapp';
+    } else {
+      responseSend = await this.nats.firstValue('sms.send', {
+        cellphone: cellphoneCodePostal,
+        message: messageSend + `${signature}`,
+      });
+      data.information['typeAuth'] = 'sms';
+    }
+
+    const { error, message, messageId } = responseSend;
+
     await this.nats.firstValue('ftp.saveDataTmp', {
       path: 'appMobileAuth',
       name: messageId,
       data: data,
     });
-    this.logger.log('Login AppMobile con envío de sms');
+
     return {
-      error: !status,
-      message: message + ' Login mediante SMS',
+      error: error,
+      logoutUrl,
+      message: message,
       messageId,
     };
   }
@@ -210,26 +291,25 @@ export class AuthAppMobileService {
       };
     }
 
-    // DESCOMENTAR CUANDO SE SOLUCIONE BUG EN LA APP MOVIL DE VERIFICACION AL AUTOCOMPLETAR
-    // if (!data.information || typeof data.information.pin === 'undefined') {
-    //   return {
-    //     error: true,
-    //     message: 'El pin ha expirado, vuelva a iniciar sesión',
-    //   };
-    // }
+    if (!data.information || typeof data.information.pin === 'undefined') {
+      return {
+        error: true,
+        message: 'El pin ha expirado, vuelva a iniciar sesión',
+      };
+    }
 
-    const { pin: expectedPin, ...information } = data.information;
+    const { pin: expectedPin, typeAuth, ...information } = data.information;
 
     if (pin !== expectedPin) {
       return {
         error: true,
-        message: 'Pin incorrecto',
+        message: `Pin incorrecto via ${typeAuth}`,
       };
     }
 
     return {
       error: false,
-      message: 'Pin verificado, Inicio de sesión con envío de sms',
+      message: `Pin verificado via ${typeAuth}`,
       data: {
         apiToken: data.apiToken,
         information,
@@ -243,5 +323,27 @@ export class AuthAppMobileService {
 
   async logoutAppMobile(body: any): Promise<any> {
     return await this.nats.firstValue('appMobile.deleteToken', body);
+  }
+
+  async credentialsCitizenshipDigital(): Promise<any> {
+    const response = await this.nats.firstValue(
+      'citizenshipDigital.credentials',
+      {},
+    );
+
+    const { serviceStatus, ...credentials } = response;
+
+    if (!serviceStatus) {
+      return {
+        error: true,
+        message: 'Error al obtener las credenciales de Ciudadanía Digital',
+      };
+    }
+
+    return {
+      error: false,
+      message: 'Credenciales obtenidas exitosamente',
+      data: credentials,
+    };
   }
 }
