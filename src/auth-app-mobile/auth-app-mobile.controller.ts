@@ -26,9 +26,4 @@ export class AuthAppMobileController {
   async logoutAppMobile(@Payload() body: any) {
     return await this.authAppMobileService.logoutAppMobile(body);
   }
-
-  @MessagePattern('auth.credentialsCitizenshipDigital')
-  async credentialsAppMObile() {
-    return await this.authAppMobileService.credentialsCitizenshipDigital();
-  }
 }
