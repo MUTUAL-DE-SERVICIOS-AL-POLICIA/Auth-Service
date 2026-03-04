@@ -1,5 +1,4 @@
-import { Controller, Logger, UseGuards } from '@nestjs/common';
-import { LdapAuthGuard } from './ldap-auth.guard';
+import { Controller, Logger } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { MessagePattern, Payload } from '@nestjs/microservices';
 
@@ -8,27 +7,18 @@ export class AuthController {
   private readonly logger = new Logger('AuthController');
   constructor(private readonly authService: AuthService) {}
 
-  @UseGuards(LdapAuthGuard)
   @MessagePattern('auth.login')
   async login(@Payload() data: any) {
-    const jwt = await this.authService.generateJwt(data.user);
-    return {
-      access_token: jwt,
-      user: {
-        username: data.user.uid,
-        name: data.user.cn,
-      },
-    };
+    return this.authService.login(data.username, data.password);
   }
 
   @MessagePattern('auth.verify.token')
   async verifyToken(@Payload() token: string) {
-    const user = await this.authService.verifyToken(token);
-    return user;
+    return this.authService.verifyToken(token);
   }
 
   @MessagePattern('auth.verify.apiKey')
   async verifyApiKey(@Payload() apiKey: string) {
-    return await this.authService.verifyApiKey(apiKey);
+    return this.authService.verifyApiKey(apiKey);
   }
 }
