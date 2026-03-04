@@ -2,6 +2,7 @@ import * as joi from 'joi';
 
 interface EnvVars {
   NATS_SERVERS: string[];
+  ENVIRONMENT: string;
   DB_PASSWORD: string;
   DB_DATABASE: string;
   DB_HOST: string;
@@ -29,6 +30,7 @@ interface EnvVars {
 const envsSchema = joi
   .object({
     NATS_SERVERS: joi.array().items(joi.string()).required(),
+    ENVIRONMENT: joi.string().valid('prod', 'test', 'dev').required(),
     LDAP_HOST: joi.string().required(),
     LDAP_PORT: joi.number().required(),
     LDAP_ADMIN_PREFIX: joi.string().required(),
@@ -69,6 +71,10 @@ const envVars: EnvVars = {
 
 export const NastEnvs = {
   natsServers: envVars.NATS_SERVERS,
+};
+
+export const EnvironmentEnvs = {
+  environment: envVars.ENVIRONMENT,
 };
 
 export const LdapEnvs = {
