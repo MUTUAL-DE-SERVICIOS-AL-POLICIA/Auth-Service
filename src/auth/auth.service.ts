@@ -3,17 +3,24 @@ import { JwtService } from '@nestjs/jwt';
 import { RpcException } from '@nestjs/microservices';
 import { SecretEnvs, EnvironmentEnvs } from 'src/config';
 import { LdapService } from 'src/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Permission } from './entities/permissions.entity';
 
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger('AuthService');
   constructor(
     private readonly jwtService: JwtService,
-    private readonly ldapService: LdapService
+    private readonly ldapService: LdapService,
+    @InjectRepository(Permission)
+    private readonly permissionsRepository: Repository<Permission>,
   ) {}
 
   async login(username: string, password: string): Promise<any> {
     let user;
+
+    const permissions = await this.permissionsRepository.findOne({ where: { username: username } });
 
     if(EnvironmentEnvs.environment === 'dev') {
       user = {
@@ -40,6 +47,7 @@ export class AuthService {
     return {
       access_token: jwt,
       user,
+      access: permissions ? permissions.access : [],
     };
   }
 
