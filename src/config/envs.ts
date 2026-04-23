@@ -21,8 +21,6 @@ interface EnvVars {
   LDAP_BASEDN: string;
   JWT_SECRET: string;
   API_KEY: string;
-  PVTBE_USERNAME: string;
-  PVTBE_PASSWORD: string;
   USER_TEST_DEVICE: string;
   USER_TEST_ACCESS: boolean;
 }
