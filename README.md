@@ -1,85 +1,93 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Auth-Service
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+## Descripción
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://coveralls.io/github/nestjs/nest?branch=master" target="_blank"><img src="https://coveralls.io/repos/github/nestjs/nest/badge.svg?branch=master#9" alt="Coverage" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+**Auth-Service** es el microservicio encargado de la autenticación y autorización de usuarios en la plataforma. Gestiona todo el proceso de login, validación de credenciales, generación de tokens de acceso y control de permisos. Es el servicio central que garantiza que solo usuarios autorizados accedan a los recursos de la plataforma. Forma parte de una arquitectura de microservicios basada en **NestJS** y utiliza **NATS** para la comunicación asincrónica entre servicios.
 
-## Description
+Maneja datos como:
+- Autenticación de usuarios (login y logout)
+- Validación de credenciales contra LDAP
+- Generación y validación de tokens JWT
+- Gestión de permisos y roles de usuarios
+- Control de acceso a recursos
+- Gestión de sesiones seguras
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+---
 
-## Project setup
+## Estructura del Proyecto
 
-```bash
-$ yarn install
+```
+src/
+├── app.module.ts                 # Módulo raíz que organiza todos los módulos de la aplicación
+├── main.ts                       # Punto de entrada principal de la aplicación
+├── auth/                         # Módulo principal de autenticación
+│   ├── controllers/              # Controladores que manejan rutas de login/logout
+│   ├── services/                 # Servicios con la lógica de autenticación
+│   └── dto/                      # Data Transfer Objects para validación de credenciales
+├── ldap/                         # Módulo de integración con servidor LDAP
+│   ├── ldap.service.ts           # Servicio para validar usuarios contra LDAP
+│   └── ldap.config.ts            # Configuración de conexión LDAP
+├── jwt/                          # Módulo de gestión de tokens JWT
+│   ├── jwt.strategy.ts           # Estrategia de Passport para validar JWTs
+│   └── jwt.service.ts            # Servicio para generar y validar tokens
+├── common/                       # Código compartido reutilizable en toda la aplicación
+│   ├── filters/                  # Filtros para manejo de excepciones
+│   ├── guards/                   # Guards para proteger rutas
+│   └── decorators/               # Decoradores personalizados
+├── config/                       # Archivos de configuración (BD, variables ENV, etc)
+│   └── database.config.ts        # Configuración específica de PostgreSQL
+├── database/                     # Gestión de base de datos, migraciones y datos iniciales
+│   ├── migrations/               # Migraciones TypeORM para cambios en el esquema BD
+│   ├── seeds/                    # Seeders para llenar BD con datos de prueba
+│   └── entities/                 # Entidades (modelos) que representan tablas de la BD
 ```
 
-## Compile and run the project
+---
+
+## Clonar el repositorio y agregarle un nombre nuevo del nuevo proyecto
 
 ```bash
-# development
-$ yarn run start
-
-# watch mode
-$ yarn run start:dev
-
-# production mode
-$ yarn run start:prod
+git clone https://github.com/MUTUAL-DE-SERVICIOS-AL-POLICIA/Auth-Service.git nombre-auth-service
 ```
 
-## Run tests
+## Inicializar proyecto
 
 ```bash
-# unit tests
-$ yarn run test
+# Entrar al repositorio clonado con el nuevo nombre del proyecto
+cd nombre-auth-service
 
-# e2e tests
-$ yarn run test:e2e
+# Elimina el origen remoto actual
+git remote remove origin
 
-# test coverage
-$ yarn run test:cov
+# Crear el archivo .env en base al .env.template
+cp .env.template .env
+
+# Instalar las dependencias
+pnpm install
+
+# Correr proyecto en modo desarrollo
+pnpm start:dev
+
+# Crear nuevo Módulo
+nest g res nombreModulo
+
+# Crear una migración
+pnpm typeorm migration:create src/database/migrations/NombreDeLaMigración
+
+# Correr migración
+pnpm migration:run
+
+# Revertir migración
+pnpm migration:revert
+
+# Ver estado de migraciones
+pnpm migration:show
+
+# Para enlazar a un nuevo repositorio
+git remote add origin https://github.com/tu-usuario/{nombre-auth-service}.git
+git add .
+git commit -m "Inicialización del nuevo proyecto"
+git branch -M main
+git push -u origin main
 ```
 
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
