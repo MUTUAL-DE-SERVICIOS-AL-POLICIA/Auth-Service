@@ -1,4 +1,31 @@
+import 'dotenv/config';
 import * as joi from 'joi';
+
+/* ================== Tipos básicos ================== */
+export type OidcClientCfg = { secret?: string; origins?: string[] };
+export type OidcClientsRecord = Record<string, OidcClientCfg>;
+
+/* ================== Helpers internos ================== */
+const uniq = <T>(arr: T[] = []) => Array.from(new Set(arr));
+const safeJson = <T>(raw: string | undefined, fallback: T): T => {
+  if (!raw) return fallback;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return fallback;
+  }
+};
+
+/* ================== Esquemas JOI ================== */
+const oidcClientSchema = joi.object({
+  secret: joi.string().allow('', null),
+  origins: joi.array().items(joi.string().uri()).default([]),
+});
+
+const oidcClientsRecordSchema = joi
+  .object()
+  .pattern(/^[\w.\-:]+$/, oidcClientSchema) // claves = client_id
+  .min(1);
 
 interface EnvVars {
   NATS_SERVERS: string[];
@@ -23,6 +50,13 @@ interface EnvVars {
   API_KEY: string;
   USER_TEST_DEVICE: string;
   USER_TEST_ACCESS: boolean;
+  KEYCLOAK_HOST: string;
+  KEYCLOAK_PORT: number;
+  KEYCLOAK_REALM: string;
+  OIDC_CLIENTS: string;
+  REDIS_HOST: string;
+  REDIS_PORT: number;
+  REDIS_PASSWORD: string;
 }
 
 const envsSchema = joi
@@ -49,6 +83,14 @@ const envsSchema = joi
     DB_USERNAME: joi.string().required(),
     DB_SYNCHRONIZE: joi.string().valid('true', 'false').default('false'),
     DB_SCHEMA: joi.string().default('beneficiaries'),
+
+    KEYCLOAK_HOST: joi.string().required(),
+    KEYCLOAK_PORT: joi.number().required(),
+    KEYCLOAK_REALM: joi.string().required(),
+    OIDC_CLIENTS: joi.string().required(),
+    REDIS_HOST: joi.string().required(),
+    REDIS_PORT: joi.number().default(6379),
+    REDIS_PASSWORD: joi.string().required(),
   })
   .unknown(true);
 
@@ -60,6 +102,18 @@ const { error, value } = envsSchema.validate({
 
 if (error) {
   throw new Error(`Config validation error: ${error.message}`);
+}
+
+/* ============ Parseo y normalización OIDC_CLIENTS ============ */
+const rawClients = safeJson<OidcClientsRecord>(value.OIDC_CLIENTS, {});
+const { error: clientsErr, value: validatedClients } =
+  oidcClientsRecordSchema.validate(rawClients, { abortEarly: false });
+if (clientsErr) throw new Error(`OIDC_CLIENTS inválido: ${clientsErr.message}`);
+
+// normaliza origins (únicos)
+for (const cid of Object.keys(validatedClients)) {
+  const cfg = validatedClients[cid];
+  cfg.origins = uniq(cfg.origins ?? []);
 }
 
 const envVars: EnvVars = {
@@ -106,3 +160,23 @@ export const TestDeviceEnvs = {
   userTestDevice: envVars.USER_TEST_DEVICE,
   userTestAccess: envVars.USER_TEST_ACCESS,
 };
+
+export const KeycloakEnvs = {
+  url: `http://${envVars.KEYCLOAK_HOST}:${envVars.KEYCLOAK_PORT}`,
+  host: envVars.KEYCLOAK_HOST,
+  port: envVars.KEYCLOAK_PORT,
+  realm: envVars.KEYCLOAK_REALM,
+  issuer: `http://${envVars.KEYCLOAK_HOST}:${envVars.KEYCLOAK_PORT}/realms/${envVars.KEYCLOAK_REALM}`,
+  endpoint: {
+    token: `http://${envVars.KEYCLOAK_HOST}:${envVars.KEYCLOAK_PORT}/realms/${envVars.KEYCLOAK_REALM}/protocol/openid-connect/token`,
+    certs: `http://${envVars.KEYCLOAK_HOST}:${envVars.KEYCLOAK_PORT}/realms/${envVars.KEYCLOAK_REALM}/protocol/openid-connect/certs`,
+  },
+};
+
+export const RedisEnvs = {
+  host: envVars.REDIS_HOST,
+  port: envVars.REDIS_PORT,
+  password: envVars.REDIS_PASSWORD,
+};
+
+export const OidcClientsDict: OidcClientsRecord = validatedClients;
