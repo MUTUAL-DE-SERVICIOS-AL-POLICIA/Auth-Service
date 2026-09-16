@@ -10,8 +10,7 @@ COPY pnpm-workspace.yaml ./
 
 RUN corepack enable pnpm \
     && pnpm config set minimumReleaseAge 0 \
-    && pnpm install --frozen-lockfile --ignore-scripts \
-    && pnpm rebuild bcrypt
+    && pnpm install --frozen-lockfile --ignore-scripts
 
 COPY . .
 
