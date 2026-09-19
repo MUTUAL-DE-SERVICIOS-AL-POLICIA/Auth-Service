@@ -1,3 +1,8 @@
+import {
+  isPresentationIdentity,
+  PresentationIdentity,
+} from '../contracts/web-auth.contracts';
+
 export interface WebSession {
   version: number;
   subject: string;
@@ -5,6 +10,7 @@ export interface WebSession {
   hubClientId: string;
   createdAt: number;
   expiresAt: number;
+  identity: PresentationIdentity;
   hubTokens: {
     tokenType: string;
     accessToken: string;
@@ -30,6 +36,8 @@ export function isWebSession(value: unknown): value is WebSession {
     Number.isFinite(v.createdAt) &&
     Number.isFinite(v.expiresAt) &&
     v.expiresAt > v.createdAt &&
+    isPresentationIdentity(v.identity) &&
+    v.identity.sub === v.subject &&
     t &&
     typeof t === 'object' &&
     typeof t.tokenType === 'string' &&

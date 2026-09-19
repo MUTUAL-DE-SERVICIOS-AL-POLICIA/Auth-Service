@@ -4,16 +4,29 @@ import { KeycloakClient } from './oidc/keycloak-client';
 import { WebRedisService } from './redis/web-redis.service';
 import { PendingLoginStore } from './state/pending-login.store';
 import { WebSessionStore } from './session/web-session.store';
+import { WebAuthController } from './web-auth.controller';
+import { WebAuthService } from './web-auth.service';
+import { WebAuthConfigToken } from './web-auth.tokens';
 
 @Module({})
 export class WebAuthModule {
   static register(env: NodeJS.ProcessEnv = process.env): DynamicModule {
     const config = readWebAuthConfig(env);
-    if (!config) return { module: WebAuthModule };
+    const common = [
+      { provide: WebAuthConfigToken, useValue: config },
+      WebAuthService,
+    ];
+    if (!config)
+      return {
+        module: WebAuthModule,
+        controllers: [WebAuthController],
+        providers: common,
+      };
     return {
       module: WebAuthModule,
+      controllers: [WebAuthController],
       providers: [
-        { provide: WebAuthConfigToken, useValue: config },
+        ...common,
         {
           provide: WebRedisService,
           useFactory: (cfg: WebAuthConfig) => new WebRedisService(cfg),
@@ -37,9 +50,12 @@ export class WebAuthModule {
           inject: [WebRedisService, WebAuthConfigToken],
         },
       ],
-      exports: [KeycloakClient, PendingLoginStore, WebSessionStore],
+      exports: [
+        KeycloakClient,
+        PendingLoginStore,
+        WebSessionStore,
+        WebAuthService,
+      ],
     };
   }
 }
-
-export const WebAuthConfigToken = Symbol('WebAuthConfig');

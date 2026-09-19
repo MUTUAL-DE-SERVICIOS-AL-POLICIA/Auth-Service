@@ -1,0 +1,73 @@
+export interface StartWebLoginRequest {
+  returnPath: string;
+  browserBinding: string;
+}
+
+export interface StartWebLoginResponse {
+  authorizationUrl: string;
+}
+
+export interface ExchangeWebCodeRequest {
+  code: string;
+  state: string;
+  browserBinding: string;
+}
+
+export interface PresentationIdentity {
+  sub: string;
+  preferredUsername?: string;
+  name?: string;
+  givenName?: string;
+  familyName?: string;
+  email?: string;
+}
+
+const identityKeys = new Set([
+  'sub',
+  'preferredUsername',
+  'name',
+  'givenName',
+  'familyName',
+  'email',
+]);
+
+export function isPresentationIdentity(
+  value: unknown,
+): value is PresentationIdentity {
+  if (!value || typeof value !== 'object') return false;
+  const identity = value as Record<string, unknown>;
+  if (
+    typeof identity.sub !== 'string' ||
+    !identity.sub ||
+    Object.keys(identity).some((key) => !identityKeys.has(key))
+  )
+    return false;
+  return [...identityKeys]
+    .filter((key) => key !== 'sub')
+    .every(
+      (key) => identity[key] === undefined || typeof identity[key] === 'string',
+    );
+}
+
+export interface ExchangeWebCodeResponse {
+  sid: string;
+  returnPath: string;
+  identity: PresentationIdentity;
+  sessionExpiresAt: number;
+}
+
+export interface CheckWebSessionRequest {
+  sid: string;
+}
+
+export interface CheckWebSessionResponse {
+  authenticated: true;
+  identity: PresentationIdentity;
+  sessionExpiresAt: number;
+}
+
+export const WebAuthPatterns = {
+  loginStart: 'web-auth.login.start',
+  loginExchange: 'web-auth.login.exchange',
+  sessionCheck: 'web-auth.session.check',
+} as const;

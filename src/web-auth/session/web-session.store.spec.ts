@@ -42,6 +42,7 @@ describe('WebSessionStore', () => {
       hubClientId: 'hub',
       createdAt: now,
       expiresAt: now + 28_800_000,
+      identity: { sub: 'person-1', name: 'Test Person' },
       hubTokens: {
         tokenType: 'Bearer',
         accessToken: 'test-token',
@@ -72,6 +73,12 @@ describe('WebSessionStore', () => {
     ).rejects.toThrow();
     await expect(
       store.create({ ...session, expiresAt: Date.now() - 1 }),
+    ).rejects.toThrow();
+    await expect(
+      store.create({
+        ...session,
+        identity: { ...session.identity, roles: ['admin'] } as any,
+      }),
     ).rejects.toThrow();
     for (const change of [
       { subject: 'other' },

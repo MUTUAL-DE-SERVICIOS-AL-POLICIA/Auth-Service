@@ -5,6 +5,8 @@ import {
   WebRedisService,
   WebStoreUnavailableError,
 } from './redis/web-redis.service';
+import { WebAuthController } from './web-auth.controller';
+import { RpcException } from '@nestjs/microservices';
 
 const enabled = {
   WEB_AUTH_ENABLED: 'true',
@@ -25,6 +27,22 @@ describe('WebAuthModule isolation', () => {
       imports: [WebAuthModule.register({ WEB_AUTH_ENABLED: 'false' })],
     }).compile();
     await expect(module.init()).resolves.toBeDefined();
+    const controller = module.get(WebAuthController);
+    try {
+      await controller.start({
+        returnPath: '/apphub',
+        browserBinding: 'a'.repeat(43),
+      });
+      throw new Error('expected disabled response');
+    } catch (error) {
+      expect(error).toBeInstanceOf(RpcException);
+      expect((error as RpcException).getError()).toEqual({
+        error: {
+          code: 'WEB_AUTH_DISABLED',
+          message: 'Web authentication is disabled',
+        },
+      });
+    }
     await module.close();
   });
   it('initializes while Redis is absent and fails only a web operation', async () => {

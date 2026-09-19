@@ -51,7 +51,7 @@ describe('PendingLoginStore', () => {
         codeVerifier: createPkce().verifier,
         nonce: createNonce(),
         redirectUri: config.callbackUrl,
-        returnTo: '/',
+        returnTo: '/apphub',
         browserBindingHash: hashBrowserBinding(binding),
         createdAt,
       },
