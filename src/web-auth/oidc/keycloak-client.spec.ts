@@ -12,6 +12,9 @@ describe('KeycloakClient', () => {
   let publicJwk: Record<string, unknown>;
   let discoveryCalls = 0;
   let slowDiscovery = false;
+  let tokenStatus = 200;
+  let tokenResponse: unknown;
+  let tokenRequestBody = '';
 
   beforeAll(async () => {
     const keys = await generateKeyPair('RS256');
@@ -39,14 +42,14 @@ describe('KeycloakClient', () => {
         res.setHeader('Content-Type', 'application/json');
         res.end(JSON.stringify({ keys: [publicJwk] }));
       } else if (req.url?.endsWith('/token')) {
-        res.setHeader('Content-Type', 'application/json');
-        res.end(
-          JSON.stringify({
-            access_token: 'opaque-for-test',
-            token_type: 'Bearer',
-            expires_in: 300,
-          }),
-        );
+        const chunks: Buffer[] = [];
+        req.on('data', (chunk) => chunks.push(Buffer.from(chunk)));
+        req.on('end', () => {
+          tokenRequestBody = Buffer.concat(chunks).toString('utf8');
+          res.statusCode = tokenStatus;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify(tokenResponse));
+        });
       } else {
         res.writeHead(404);
         res.end();
@@ -66,12 +69,61 @@ describe('KeycloakClient', () => {
   });
   beforeEach(() => {
     slowDiscovery = false;
+    tokenStatus = 200;
+    tokenResponse = {
+      access_token: 'opaque-for-test',
+      token_type: 'Bearer',
+      expires_in: 300,
+    };
+    tokenRequestBody = '';
     client = new KeycloakClient({
       issuer,
       hubClientId: 'hub',
       hubClientType: 'public',
       callbackUrl: 'http://localhost/callback',
     } as WebAuthConfig);
+  });
+
+  it('uses the Hub client for refresh and classifies invalid_grant', async () => {
+    await expect(
+      client.refreshPrimaryToken('test-refresh'),
+    ).resolves.toMatchObject({ access_token: 'opaque-for-test' });
+    const body = new URLSearchParams(tokenRequestBody);
+    expect(body.get('grant_type')).toBe('refresh_token');
+    expect(body.get('client_id')).toBe('hub');
+    expect(body.get('refresh_token')).toBe('test-refresh');
+
+    tokenStatus = 400;
+    tokenResponse = { error: 'invalid_grant', error_description: 'hidden' };
+    await expect(client.refreshPrimaryToken('invalid')).rejects.toMatchObject({
+      kind: 'invalid_grant',
+      message: 'OIDC operation failed',
+    });
+  });
+
+  it('rejects malformed refresh responses without reflecting their content', async () => {
+    tokenResponse = { access_token: 'secret-value', expires_in: 'invalid' };
+    try {
+      await client.refreshPrimaryToken('test-refresh');
+      throw new Error('expected refresh rejection');
+    } catch (error) {
+      expect(error).toMatchObject({
+        kind: 'invalid_response',
+        message: 'OIDC operation failed',
+      });
+      expect(String(error)).not.toContain('secret-value');
+    }
+  });
+
+  it('does not classify a generic HTTP 400 as invalid_grant', async () => {
+    tokenStatus = 400;
+    tokenResponse = { error: 'invalid_request', error_description: 'hidden' };
+    await expect(
+      client.refreshPrimaryToken('test-refresh'),
+    ).rejects.toMatchObject({
+      kind: 'invalid_response',
+      message: 'OIDC operation failed',
+    });
   });
 
   async function signed(
@@ -110,6 +162,9 @@ describe('KeycloakClient', () => {
     ).resolves.toMatchObject({ sub: 'subject-1' });
     await expect(
       client.validateAccessToken(await signed({ aud: 'hub' })),
+    ).resolves.toMatchObject({ sub: 'subject-1' });
+    await expect(
+      client.validateAccessToken(await signed({ aud: 'account', azp: 'hub' })),
     ).resolves.toMatchObject({ sub: 'subject-1' });
     await expect(
       client.validateAccessToken(await signed({ azp: 'other' })),

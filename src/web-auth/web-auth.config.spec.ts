@@ -49,4 +49,18 @@ describe('web auth configuration', () => {
       'HTTPS',
     );
   });
+  it('uses the approved refresh margin and session durations', () => {
+    expect(readWebAuthConfig(valid)).toMatchObject({
+      sessionTtlSeconds: 28_800,
+      sessionIdleTtlSeconds: 7_200,
+      refreshSkewSeconds: 120,
+    });
+    expect(
+      readWebAuthConfig({ ...valid, WEB_REFRESH_SKEW_SECONDS: '90' })
+        ?.refreshSkewSeconds,
+    ).toBe(90);
+    expect(() =>
+      readWebAuthConfig({ ...valid, WEB_REFRESH_SKEW_SECONDS: 'invalid' }),
+    ).toThrow('WEB_REFRESH_SKEW_SECONDS');
+  });
 });

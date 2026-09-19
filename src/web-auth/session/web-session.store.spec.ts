@@ -8,6 +8,7 @@ const config = {
   environment: 'test',
   redisKeyPrefix: 'web',
   sessionTtlSeconds: 28800,
+  sessionIdleTtlSeconds: 7200,
   issuer: 'http://localhost/realms/muserpol',
   hubClientId: 'hub',
 } as WebAuthConfig;
@@ -15,13 +16,32 @@ const config = {
 describe('WebSessionStore', () => {
   const entries = new Map<string, string>();
   const client = {
-    set: jest.fn(async (key: string, value: string) => {
+    set: jest.fn(async (key: string, value: string, ..._args: unknown[]) => {
       if (entries.has(key)) return null;
       entries.set(key, value);
       return 'OK';
     }),
     get: jest.fn(async (key: string) => entries.get(key) ?? null),
     del: jest.fn(async (key: string) => (entries.delete(key) ? 1 : 0)),
+    eval: jest.fn(
+      async (script: string, _keys: number, key: string, ...args: string[]) => {
+        if (script.includes('current.revision')) {
+          const raw = entries.get(key);
+          if (!raw) return 0;
+          const current = JSON.parse(raw);
+          if (current.schemaVersion !== 2) return -2;
+          if (current.status !== 'active') return -3;
+          if (current.revision !== Number(args[0])) return -1;
+          entries.set(key, args[1]);
+          return 1;
+        }
+        if (entries.get(key) === args[0]) {
+          entries.delete(key);
+          return 1;
+        }
+        return 0;
+      },
+    ),
   };
   const redis = {
     execute: (operation: (client: any) => Promise<unknown>) =>
@@ -36,18 +56,24 @@ describe('WebSessionStore', () => {
   function fixture(): WebSession {
     const now = Date.now();
     return {
-      version: 1,
+      schemaVersion: 2,
+      revision: 1,
+      status: 'active',
       subject: 'person-1',
       issuer: config.issuer,
       hubClientId: 'hub',
       createdAt: now,
-      expiresAt: now + 28_800_000,
+      absoluteExpiresAt: now + 28_800_000,
+      idleExpiresAt: now + 7_200_000,
+      lastActivityAt: now,
       identity: { sub: 'person-1', name: 'Test Person' },
-      hubTokens: {
+      primary: {
         tokenType: 'Bearer',
         accessToken: 'test-token',
-        expiresAt: now + 300_000,
+        issuedAt: now,
+        accessExpiresAt: now + 300_000,
       },
+      clients: {},
     };
   }
 
@@ -72,7 +98,7 @@ describe('WebSessionStore', () => {
       store.create({ ...session, issuer: 'other' }),
     ).rejects.toThrow();
     await expect(
-      store.create({ ...session, expiresAt: Date.now() - 1 }),
+      store.create({ ...session, absoluteExpiresAt: Date.now() - 1 }),
     ).rejects.toThrow();
     await expect(
       store.create({
@@ -94,5 +120,83 @@ describe('WebSessionStore', () => {
     client.set.mockResolvedValueOnce(null);
     await expect(store.create(fixture())).resolves.toBeDefined();
     expect(client.set).toHaveBeenCalledTimes(2);
+  });
+
+  it('uses the idle limit for Redis TTL without exceeding the absolute limit', async () => {
+    const now = Date.now();
+    const session = fixture();
+    session.createdAt = now;
+    session.lastActivityAt = now;
+    session.idleExpiresAt = now + 7_200_000;
+    session.absoluteExpiresAt = now + 28_800_000;
+    await store.create(session);
+    expect(client.set).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
+      'EX',
+      expect.any(Number),
+      'NX',
+    );
+    const ttl = client.set.mock.calls[0][3] as number;
+    expect(ttl).toBeGreaterThanOrEqual(7_199);
+    expect(ttl).toBeLessThanOrEqual(7_200);
+  });
+
+  it('rejects legacy sessions and sessions in closing state predictably', async () => {
+    const opaqueSid = 'a'.repeat(43);
+    const key = `web:test:session:${opaqueSid}`;
+    entries.set(
+      key,
+      JSON.stringify({
+        version: 1,
+        subject: 'person-1',
+        expiresAt: Date.now() + 60_000,
+      }),
+    );
+    await expect(store.get(opaqueSid)).rejects.toBeInstanceOf(Error);
+
+    entries.set(key, JSON.stringify({ ...fixture(), status: 'closing' }));
+    await expect(store.get(opaqueSid)).rejects.toBeInstanceOf(Error);
+
+    entries.set(
+      key,
+      JSON.stringify({ ...fixture(), idleExpiresAt: Date.now() - 1 }),
+    );
+    await expect(store.get(opaqueSid)).rejects.toBeInstanceOf(Error);
+
+    const expired = fixture();
+    expired.absoluteExpiresAt = Date.now() - 1;
+    expired.idleExpiresAt = expired.absoluteExpiresAt;
+    entries.set(key, JSON.stringify(expired));
+    await expect(store.get(opaqueSid)).rejects.toBeInstanceOf(Error);
+  });
+
+  it('updates only the expected revision and releases only its own lock', async () => {
+    const session = fixture();
+    const sid = await store.create(session);
+    const next = {
+      ...session,
+      revision: 2,
+      lastActivityAt: session.lastActivityAt + 1,
+    };
+    await expect(store.replace(sid, 1, next)).resolves.toBe(true);
+    await expect(store.replace(sid, 1, { ...next, revision: 2 })).resolves.toBe(
+      false,
+    );
+
+    const owner = await store.acquireRefreshLock(sid);
+    expect(owner).toMatch(/^[A-Za-z0-9_-]+$/);
+    await store.releaseRefreshLock(sid, 'different-owner');
+    expect(entries.has(`web:test:session:${sid}:refresh-lock`)).toBe(true);
+    await store.releaseRefreshLock(sid, owner!);
+    expect(entries.has(`web:test:session:${sid}:refresh-lock`)).toBe(false);
+  });
+
+  it('waits for a winning revision for a bounded period', async () => {
+    const session = fixture();
+    const sid = await store.create(session);
+    await expect(store.waitForRevision(sid, 1, 1)).rejects.toBeInstanceOf(
+      Error,
+    );
   });
 });

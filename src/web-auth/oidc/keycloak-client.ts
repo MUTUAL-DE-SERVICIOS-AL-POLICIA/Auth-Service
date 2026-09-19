@@ -16,10 +16,14 @@ export interface OidcTokenResponse {
   expires_in: number;
   refresh_token?: string;
   id_token?: string;
+  refresh_expires_in?: number;
 }
 
 export class OidcError extends Error {
-  constructor() {
+  constructor(
+    readonly kind:
+      'invalid_grant' | 'unavailable' | 'invalid_response' = 'unavailable',
+  ) {
     super('OIDC operation failed');
   }
 }
@@ -39,7 +43,7 @@ export class KeycloakClient {
       url.origin !== issuer.origin ||
       !url.pathname.startsWith(`${issuer.pathname}/`)
     )
-      throw new OidcError();
+      throw new OidcError('invalid_response');
     if (!this.config.internalBaseUrl) return url.toString();
     const internal = new URL(this.config.internalBaseUrl);
     return new URL(url.pathname + url.search, internal).toString();
@@ -54,8 +58,64 @@ export class KeycloakClient {
       if (!response.ok) throw new OidcError();
       return await response.json();
     } catch {
-      throw new OidcError();
+      throw new OidcError('invalid_response');
     }
+  }
+
+  private async tokenRequest(
+    url: string,
+    body: URLSearchParams,
+  ): Promise<OidcTokenResponse> {
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        method: 'POST',
+        headers: { 'content-type': 'application/x-www-form-urlencoded' },
+        body,
+        signal: AbortSignal.timeout(3000),
+      });
+    } catch {
+      throw new OidcError('unavailable');
+    }
+    if (!response.ok) {
+      let errorCode: unknown;
+      try {
+        const error = (await response.json()) as Record<string, unknown>;
+        errorCode = error.error;
+      } catch {
+        // The public error deliberately does not include the response body.
+      }
+      if (response.status === 400 && errorCode === 'invalid_grant')
+        throw new OidcError('invalid_grant');
+      throw new OidcError(
+        response.status >= 500 ? 'unavailable' : 'invalid_response',
+      );
+    }
+    let data: unknown;
+    try {
+      data = await response.json();
+    } catch {
+      throw new OidcError('invalid_response');
+    }
+    if (!data || typeof data !== 'object')
+      throw new OidcError('invalid_response');
+    const value = data as Record<string, unknown>;
+    if (
+      typeof value.access_token !== 'string' ||
+      !value.access_token ||
+      value.token_type !== 'Bearer' ||
+      typeof value.expires_in !== 'number' ||
+      value.expires_in <= 0 ||
+      (value.refresh_token !== undefined &&
+        (typeof value.refresh_token !== 'string' || !value.refresh_token)) ||
+      (value.id_token !== undefined &&
+        (typeof value.id_token !== 'string' || !value.id_token)) ||
+      (value.refresh_expires_in !== undefined &&
+        (typeof value.refresh_expires_in !== 'number' ||
+          value.refresh_expires_in <= 0))
+    )
+      throw new OidcError('invalid_response');
+    return value as unknown as OidcTokenResponse;
   }
 
   async discovery(): Promise<Discovery> {
@@ -71,7 +131,7 @@ export class KeycloakClient {
       typeof value.token_endpoint !== 'string' ||
       typeof value.jwks_uri !== 'string'
     )
-      throw new OidcError();
+      throw new OidcError('invalid_response');
     for (const endpoint of [
       value.authorization_endpoint,
       value.token_endpoint,
@@ -116,28 +176,19 @@ export class KeycloakClient {
     });
     if (this.config.hubClientType === 'confidential')
       body.set('client_secret', this.config.hubClientSecret!);
-    const data = await this.fetchJson(
-      this.networkUrl(metadata.token_endpoint),
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/x-www-form-urlencoded' },
-        body,
-      },
-    );
-    if (!data || typeof data !== 'object') throw new OidcError();
-    const value = data as Record<string, unknown>;
-    if (
-      typeof value.access_token !== 'string' ||
-      !value.access_token ||
-      value.token_type !== 'Bearer' ||
-      typeof value.expires_in !== 'number' ||
-      value.expires_in <= 0 ||
-      (value.refresh_token !== undefined &&
-        typeof value.refresh_token !== 'string') ||
-      (value.id_token !== undefined && typeof value.id_token !== 'string')
-    )
-      throw new OidcError();
-    return value as unknown as OidcTokenResponse;
+    return this.tokenRequest(this.networkUrl(metadata.token_endpoint), body);
+  }
+
+  async refreshPrimaryToken(refreshToken: string): Promise<OidcTokenResponse> {
+    const metadata = await this.discovery();
+    const body = new URLSearchParams({
+      grant_type: 'refresh_token',
+      client_id: this.config.hubClientId,
+      refresh_token: refreshToken,
+    });
+    if (this.config.hubClientType === 'confidential')
+      body.set('client_secret', this.config.hubClientSecret!);
+    return this.tokenRequest(this.networkUrl(metadata.token_endpoint), body);
   }
 
   private async signingKeys(): Promise<ReturnType<typeof createRemoteJWKSet>> {
@@ -163,7 +214,7 @@ export class KeycloakClient {
       if (!payload.sub || !Number.isFinite(payload.exp)) throw new OidcError();
       return payload;
     } catch {
-      throw new OidcError();
+      throw new OidcError('invalid_response');
     }
   }
 
@@ -174,9 +225,9 @@ export class KeycloakClient {
       aud === this.config.hubClientId ||
       (Array.isArray(aud) && aud.includes(this.config.hubClientId));
     if (!audienceMatches && payload.azp !== this.config.hubClientId)
-      throw new OidcError();
+      throw new OidcError('invalid_response');
     if (payload.azp !== undefined && payload.azp !== this.config.hubClientId)
-      throw new OidcError();
+      throw new OidcError('invalid_response');
     return payload;
   }
 
@@ -187,14 +238,28 @@ export class KeycloakClient {
       aud !== this.config.hubClientId &&
       !(Array.isArray(aud) && aud.includes(this.config.hubClientId))
     )
-      throw new OidcError();
+      throw new OidcError('invalid_response');
     if (payload.azp !== undefined && payload.azp !== this.config.hubClientId)
-      throw new OidcError();
-    if (typeof payload.nonce !== 'string') throw new OidcError();
+      throw new OidcError('invalid_response');
+    if (typeof payload.nonce !== 'string')
+      throw new OidcError('invalid_response');
     const actual = Buffer.from(payload.nonce);
     const expected = Buffer.from(nonce);
     if (actual.length !== expected.length || !timingSafeEqual(actual, expected))
-      throw new OidcError();
+      throw new OidcError('invalid_response');
+    return payload;
+  }
+
+  async validateRefreshedIdToken(token: string): Promise<JWTPayload> {
+    const payload = await this.verify(token);
+    const aud = payload.aud;
+    if (
+      aud !== this.config.hubClientId &&
+      !(Array.isArray(aud) && aud.includes(this.config.hubClientId))
+    )
+      throw new OidcError('invalid_response');
+    if (payload.azp !== undefined && payload.azp !== this.config.hubClientId)
+      throw new OidcError('invalid_response');
     return payload;
   }
 }

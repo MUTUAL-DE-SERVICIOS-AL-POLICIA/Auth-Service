@@ -21,7 +21,7 @@ import {
   asStartError,
   WebAuthPublicError,
 } from './errors/web-auth.errors';
-import { KeycloakClient } from './oidc/keycloak-client';
+import { KeycloakClient, OidcError } from './oidc/keycloak-client';
 import { normalizeHubReturnPath } from './return-path';
 import { WebSession } from './session/web-session';
 import { WebSessionStore } from './session/web-session.store';
@@ -30,6 +30,7 @@ import { WebAuthConfig } from './web-auth.config';
 import { WebAuthConfigToken } from './web-auth.tokens';
 
 const OPAQUE_ID = /^[A-Za-z0-9_-]{43,128}$/;
+const ABSOLUTE_SESSION_MAX_MS = 8 * 60 * 60 * 1000;
 
 @Injectable()
 export class WebAuthService {
@@ -124,29 +125,50 @@ export class WebAuthService {
         id.exp! * 1000,
         now + tokens.expires_in * 1000,
       );
-      const sessionExpiresAt = Math.min(
-        tokenExpiresAt,
-        now + dependencies.config.sessionTtlSeconds * 1000,
+      const absoluteExpiresAt =
+        now +
+        Math.min(
+          dependencies.config.sessionTtlSeconds * 1000,
+          ABSOLUTE_SESSION_MAX_MS,
+        );
+      const idleExpiresAt = Math.min(
+        absoluteExpiresAt,
+        now + dependencies.config.sessionIdleTtlSeconds * 1000,
       );
       const identity = this.identity(id);
       const session: WebSession = {
-        version: 1,
+        schemaVersion: 2,
+        revision: 1,
+        status: 'active',
         subject: access.sub,
         issuer: dependencies.config.issuer,
         hubClientId: dependencies.config.hubClientId,
         createdAt: now,
-        expiresAt: sessionExpiresAt,
+        absoluteExpiresAt,
+        idleExpiresAt,
+        lastActivityAt: now,
         identity,
-        hubTokens: {
+        primary: {
           tokenType: tokens.token_type,
           accessToken: tokens.access_token,
           refreshToken: tokens.refresh_token,
           idToken: tokens.id_token,
-          expiresAt: tokenExpiresAt,
+          idExpiresAt: tokens.id_token ? id.exp! * 1000 : undefined,
+          issuedAt: now,
+          accessExpiresAt: tokenExpiresAt,
+          refreshExpiresAt: tokens.refresh_expires_in
+            ? now + tokens.refresh_expires_in * 1000
+            : undefined,
         },
+        clients: {},
       };
       const sid = await dependencies.sessions.create(session);
-      return { sid, returnPath: pending.returnTo, identity, sessionExpiresAt };
+      return {
+        sid,
+        returnPath: pending.returnTo,
+        identity,
+        sessionExpiresAt: idleExpiresAt,
+      };
     } catch (error) {
       throw asExchangeError(error);
     }
@@ -157,14 +179,158 @@ export class WebAuthService {
     try {
       if (!input || !OPAQUE_ID.test(input.sid))
         throw new WebAuthPublicError('SESSION_INVALID');
-      const session = await dependencies.sessions.get(input.sid);
+      const current = await dependencies.sessions.get(input.sid);
+      const session =
+        current.primary.accessExpiresAt >
+        Date.now() + dependencies.config.refreshSkewSeconds * 1000
+          ? await this.recordActivity(input.sid, current, dependencies)
+          : await this.refreshPrimary(input.sid, current, dependencies);
       return {
         authenticated: true,
         identity: session.identity,
-        sessionExpiresAt: session.expiresAt,
+        sessionExpiresAt: Math.min(
+          session.absoluteExpiresAt,
+          session.idleExpiresAt,
+        ),
       };
     } catch (error) {
       throw asSessionError(error);
+    }
+  }
+
+  private withActivity(session: WebSession, now = Date.now()): WebSession {
+    return {
+      ...session,
+      revision: session.revision + 1,
+      lastActivityAt: now,
+      idleExpiresAt: Math.min(
+        session.absoluteExpiresAt,
+        now + this.config!.sessionIdleTtlSeconds * 1000,
+      ),
+    };
+  }
+
+  private async recordActivity(
+    sid: string,
+    session: WebSession,
+    dependencies: ReturnType<WebAuthService['enabled']>,
+  ): Promise<WebSession> {
+    const next = this.withActivity(session);
+    if (await dependencies.sessions.replace(sid, session.revision, next))
+      return next;
+    return dependencies.sessions.get(sid);
+  }
+
+  private async refreshPrimary(
+    sid: string,
+    observed: WebSession,
+    dependencies: ReturnType<WebAuthService['enabled']>,
+    lockAttempt = 0,
+  ): Promise<WebSession> {
+    if (!observed.primary.refreshToken) {
+      await dependencies.sessions.delete(sid);
+      throw new WebAuthPublicError('SESSION_INVALID');
+    }
+    const owner = await dependencies.sessions.acquireRefreshLock(sid);
+    if (!owner) {
+      const winner = await dependencies.sessions.waitForRevision(
+        sid,
+        observed.revision,
+      );
+      const winnerRenewed =
+        winner.primary.accessToken !== observed.primary.accessToken ||
+        winner.primary.accessExpiresAt > observed.primary.accessExpiresAt;
+      if (winnerRenewed && winner.primary.accessExpiresAt > Date.now())
+        return winner;
+      if (lockAttempt >= 1)
+        throw new WebAuthPublicError('AUTH_SERVICE_UNAVAILABLE');
+      return this.refreshPrimary(sid, winner, dependencies, lockAttempt + 1);
+    }
+    try {
+      const current = await dependencies.sessions.get(sid);
+      if (
+        current.primary.accessExpiresAt >
+        Date.now() + dependencies.config.refreshSkewSeconds * 1000
+      )
+        return this.recordActivity(sid, current, dependencies);
+
+      const tokens = await dependencies.oidc.refreshPrimaryToken(
+        current.primary.refreshToken!,
+      );
+      const access = await dependencies.oidc.validateAccessToken(
+        tokens.access_token,
+      );
+      if (!access.sub || access.sub !== current.subject)
+        throw new OidcError('invalid_response');
+
+      let refreshedId: { token: string; expiresAt: number } | undefined;
+      if (tokens.id_token) {
+        const id = await dependencies.oidc.validateRefreshedIdToken(
+          tokens.id_token,
+        );
+        if (!id.sub || id.sub !== current.subject)
+          throw new OidcError('invalid_response');
+        refreshedId = { token: tokens.id_token, expiresAt: id.exp! * 1000 };
+      }
+
+      const now = Date.now();
+      const keepExistingId =
+        !refreshedId &&
+        !!current.primary.idToken &&
+        !!current.primary.idExpiresAt &&
+        current.primary.idExpiresAt > now;
+      const primary = {
+        tokenType: tokens.token_type,
+        accessToken: tokens.access_token,
+        refreshToken: tokens.refresh_token ?? current.primary.refreshToken,
+        ...(refreshedId
+          ? {
+              idToken: refreshedId.token,
+              idExpiresAt: refreshedId.expiresAt,
+            }
+          : keepExistingId
+            ? {
+                idToken: current.primary.idToken,
+                idExpiresAt: current.primary.idExpiresAt,
+              }
+            : {}),
+        issuedAt: now,
+        accessExpiresAt: Math.min(
+          access.exp! * 1000,
+          now + tokens.expires_in * 1000,
+        ),
+        refreshExpiresAt: tokens.refresh_expires_in
+          ? now + tokens.refresh_expires_in * 1000
+          : current.primary.refreshExpiresAt,
+      };
+      let base = current;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const next = this.withActivity({ ...base, primary }, now);
+        if (await dependencies.sessions.replace(sid, base.revision, next))
+          return next;
+        const winner = await dependencies.sessions.get(sid);
+        const primaryChanged =
+          winner.primary.accessToken !== base.primary.accessToken ||
+          winner.primary.accessExpiresAt > base.primary.accessExpiresAt;
+        if (primaryChanged) {
+          if (winner.primary.accessExpiresAt <= Date.now())
+            throw new WebAuthPublicError('AUTH_SERVICE_UNAVAILABLE');
+          return winner;
+        }
+        base = winner;
+      }
+      throw new WebAuthPublicError('AUTH_SERVICE_UNAVAILABLE');
+    } catch (error) {
+      if (error instanceof OidcError && error.kind === 'invalid_grant') {
+        await dependencies.sessions.delete(sid);
+        throw new WebAuthPublicError('SESSION_INVALID');
+      }
+      if (error instanceof WebAuthPublicError) throw error;
+      throw new WebAuthPublicError('AUTH_SERVICE_UNAVAILABLE');
+    } finally {
+      await dependencies.sessions
+        .releaseRefreshLock(sid, owner)
+        .catch(() => undefined);
     }
   }
 

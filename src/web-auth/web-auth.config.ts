@@ -13,6 +13,8 @@ export interface WebAuthConfig {
   redisKeyPrefix: string;
   pendingTtlSeconds: number;
   sessionTtlSeconds: number;
+  sessionIdleTtlSeconds: number;
+  refreshSkewSeconds: number;
 }
 
 function absoluteUrl(value: string | undefined, name: string): string {
@@ -122,6 +124,12 @@ export function readWebAuthConfig(
       env.WEB_SESSION_TTL_SECONDS,
       'WEB_SESSION_TTL_SECONDS',
       28800,
+    ),
+    sessionIdleTtlSeconds: 7200,
+    refreshSkewSeconds: positiveInteger(
+      env.WEB_REFRESH_SKEW_SECONDS,
+      'WEB_REFRESH_SKEW_SECONDS',
+      120,
     ),
   };
 }
