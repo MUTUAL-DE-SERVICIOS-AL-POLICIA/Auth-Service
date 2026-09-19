@@ -1,4 +1,4 @@
-import { Controller } from '@nestjs/common';
+import { Controller, UseFilters } from '@nestjs/common';
 import { MessagePattern, Payload, RpcException } from '@nestjs/microservices';
 import {
   CheckWebSessionRequest,
@@ -7,9 +7,11 @@ import {
   WebAuthPatterns,
 } from './contracts/web-auth.contracts';
 import { WebAuthPublicError } from './errors/web-auth.errors';
+import { WebAuthRpcExceptionFilter } from './errors/web-auth-rpc-exception.filter';
 import { WebAuthService } from './web-auth.service';
 
 @Controller()
+@UseFilters(new WebAuthRpcExceptionFilter())
 export class WebAuthController {
   constructor(private readonly webAuth: WebAuthService) {}
 
