@@ -54,6 +54,7 @@ export interface ExchangeWebCodeResponse {
   returnPath: string;
   identity: PresentationIdentity;
   sessionExpiresAt: number;
+  sessionAbsoluteExpiresAt: number;
 }
 
 export interface CheckWebSessionRequest {

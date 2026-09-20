@@ -168,6 +168,7 @@ export class WebAuthService {
         returnPath: pending.returnTo,
         identity,
         sessionExpiresAt: idleExpiresAt,
+        sessionAbsoluteExpiresAt: absoluteExpiresAt,
       };
     } catch (error) {
       throw asExchangeError(error);

@@ -225,10 +225,14 @@ describe('WebAuthService', () => {
     );
     expect(result.sid).toBe(sid);
     expect(result.returnPath).toBe('/apphub/reports?page=2');
+    const stored = sessions.create.mock.calls[0][0];
+    expect(result.sessionExpiresAt).toBe(stored.idleExpiresAt);
+    expect(result.sessionAbsoluteExpiresAt).toBe(stored.absoluteExpiresAt);
+    expect(Number.isSafeInteger(result.sessionExpiresAt)).toBe(true);
+    expect(Number.isSafeInteger(result.sessionAbsoluteExpiresAt)).toBe(true);
     expect(result.identity).not.toHaveProperty('roles');
     expect(result.identity).not.toHaveProperty('groups');
     expect(result).not.toHaveProperty('accessToken');
-    const stored = sessions.create.mock.calls[0][0];
     expect(stored.absoluteExpiresAt - stored.createdAt).toBe(28_800_000);
     expect(stored.idleExpiresAt - stored.createdAt).toBe(7_200_000);
     expect(stored.primary.accessExpiresAt).toBeLessThan(
