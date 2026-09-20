@@ -435,7 +435,9 @@ export class KeycloakClient {
         (typeof value.id_token !== 'string' || !value.id_token)) ||
       (value.refresh_expires_in !== undefined &&
         (!Number.isSafeInteger(value.refresh_expires_in) ||
-          (value.refresh_expires_in as number) <= 0)) ||
+          (value.refresh_expires_in as number) < 0 ||
+          (value.refresh_token !== undefined &&
+            (value.refresh_expires_in as number) === 0))) ||
       (value.issued_token_type !== undefined &&
         value.issued_token_type !== ACCESS_TOKEN_TYPE) ||
       (value.scope !== undefined && typeof value.scope !== 'string')
@@ -445,7 +447,10 @@ export class KeycloakClient {
 
     const accessToken = value.access_token as string;
     const refreshToken = value.refresh_token as string | undefined;
-    const refreshExpiresIn = value.refresh_expires_in as number | undefined;
+    const refreshExpiresIn =
+      refreshToken === undefined
+        ? undefined
+        : (value.refresh_expires_in as number | undefined);
     const idToken = value.id_token as string | undefined;
     const scope = value.scope as string | undefined;
     const accessPayload = await this.verify(accessToken, 'invalid_token');

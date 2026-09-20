@@ -261,6 +261,62 @@ describe('KeycloakClient token exchange', () => {
     });
   });
 
+  it('accepts zero refresh expiration without a refresh token and omits it', async () => {
+    tokenResponse = {
+      ...(tokenResponse as object),
+      refresh_expires_in: 0,
+    };
+    const result = await exchange();
+    expect(result).not.toHaveProperty('refreshToken');
+    expect(result).not.toHaveProperty('refreshExpiresIn');
+  });
+
+  it('ignores a positive refresh expiration when no refresh token exists', async () => {
+    tokenResponse = {
+      ...(tokenResponse as object),
+      refresh_expires_in: 600,
+    };
+    const result = await exchange();
+    expect(result).not.toHaveProperty('refreshToken');
+    expect(result).not.toHaveProperty('refreshExpiresIn');
+  });
+
+  it('accepts a refresh token with a positive refresh expiration', async () => {
+    tokenResponse = {
+      ...(tokenResponse as object),
+      refresh_token: 'opaque-refresh-for-test',
+      refresh_expires_in: 600,
+    };
+    await expect(exchange()).resolves.toMatchObject({
+      refreshToken: 'opaque-refresh-for-test',
+      refreshExpiresIn: 600,
+    });
+  });
+
+  it('rejects zero refresh expiration when a refresh token exists', async () => {
+    tokenResponse = {
+      ...(tokenResponse as object),
+      refresh_token: 'opaque-refresh-for-test',
+      refresh_expires_in: 0,
+    };
+    await expect(exchange()).rejects.toMatchObject({
+      kind: 'invalid_response',
+    });
+  });
+
+  it.each([-1, 1.5, Number.MAX_SAFE_INTEGER + 1])(
+    'rejects invalid refresh expiration %s',
+    async (refreshExpiresIn) => {
+      tokenResponse = {
+        ...(tokenResponse as object),
+        refresh_expires_in: refreshExpiresIn,
+      };
+      await expect(exchange()).rejects.toMatchObject({
+        kind: 'invalid_response',
+      });
+    },
+  );
+
   it('accepts target audience with Hub azp and target azp with another audience', async () => {
     await expect(exchange()).resolves.toBeDefined();
     tokenResponse = {
