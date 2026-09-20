@@ -4,11 +4,13 @@ import {
   FILTER_CATCH_EXCEPTIONS,
 } from '@nestjs/common/constants';
 import { RpcException } from '@nestjs/microservices';
+import { PATTERN_METADATA } from '@nestjs/microservices/constants';
 import { RpcExceptionsHandler } from '@nestjs/microservices/exceptions/rpc-exceptions-handler';
 import { firstValueFrom, Observable } from 'rxjs';
 import { WebAuthRpcExceptionFilter } from './web-auth-rpc-exception.filter';
 import { WebAuthPublicError } from './web-auth.errors';
 import { WebAuthController } from '../web-auth.controller';
+import { WebAuthPatterns } from '../contracts/web-auth.contracts';
 
 const knownCodes = [
   'WEB_AUTH_DISABLED',
@@ -16,6 +18,10 @@ const knownCodes = [
   'LOGIN_STATE_INVALID',
   'OIDC_LOGIN_FAILED',
   'SESSION_INVALID',
+  'INVALID_CLIENT_REQUEST',
+  'WEB_TOOL_UNAVAILABLE',
+  'WEB_CLIENT_ACCESS_DENIED',
+  'WEB_CLIENT_INVALID',
   'AUTH_SERVICE_UNAVAILABLE',
 ] as const;
 
@@ -102,6 +108,15 @@ describe('WebAuthRpcExceptionFilter', () => {
     expect(controllerFilters).toHaveLength(1);
     expect(controllerFilters[0]).toBeInstanceOf(WebAuthRpcExceptionFilter);
     expect(caughtTypes).toEqual([]);
+  });
+
+  it('keeps client ensure on the filtered WebAuthController', () => {
+    expect(
+      Reflect.getMetadata(
+        PATTERN_METADATA,
+        WebAuthController.prototype.ensureClient,
+      ),
+    ).toEqual([WebAuthPatterns.clientEnsure]);
   });
 
   it('prevents a later global filter from processing a handled error', async () => {

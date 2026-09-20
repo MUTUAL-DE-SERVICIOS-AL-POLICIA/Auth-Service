@@ -9,6 +9,10 @@ export type WebAuthErrorCode =
   | 'LOGIN_STATE_INVALID'
   | 'OIDC_LOGIN_FAILED'
   | 'SESSION_INVALID'
+  | 'INVALID_CLIENT_REQUEST'
+  | 'WEB_TOOL_UNAVAILABLE'
+  | 'WEB_CLIENT_ACCESS_DENIED'
+  | 'WEB_CLIENT_INVALID'
   | 'AUTH_SERVICE_UNAVAILABLE';
 
 const messages: Record<WebAuthErrorCode, string> = {
@@ -17,6 +21,10 @@ const messages: Record<WebAuthErrorCode, string> = {
   LOGIN_STATE_INVALID: 'Login state is invalid or expired',
   OIDC_LOGIN_FAILED: 'OIDC login failed',
   SESSION_INVALID: 'Session is invalid or expired',
+  INVALID_CLIENT_REQUEST: 'Invalid web client request',
+  WEB_TOOL_UNAVAILABLE: 'Web tool is unavailable',
+  WEB_CLIENT_ACCESS_DENIED: 'Web client access was denied',
+  WEB_CLIENT_INVALID: 'Web client response is invalid',
   AUTH_SERVICE_UNAVAILABLE: 'Authentication service is unavailable',
 };
 
@@ -60,4 +68,25 @@ export function asSessionError(error: unknown): WebAuthPublicError {
   if (error instanceof WebStoreUnavailableError)
     return new WebAuthPublicError('AUTH_SERVICE_UNAVAILABLE');
   return new WebAuthPublicError('SESSION_INVALID');
+}
+
+export function asClientEnsureError(error: unknown): WebAuthPublicError {
+  if (error instanceof WebAuthPublicError) return error;
+  if (error instanceof WebStoreUnavailableError)
+    return new WebAuthPublicError('AUTH_SERVICE_UNAVAILABLE');
+  if (error instanceof WebSessionError)
+    return new WebAuthPublicError('SESSION_INVALID');
+  if (error instanceof OidcError) {
+    if (error.kind === 'access_denied')
+      return new WebAuthPublicError('WEB_CLIENT_ACCESS_DENIED');
+    if (
+      error.kind === 'invalid_target' ||
+      error.kind === 'unauthorized_client' ||
+      error.kind === 'invalid_configuration'
+    )
+      return new WebAuthPublicError('WEB_TOOL_UNAVAILABLE');
+    if (error.kind === 'invalid_response' || error.kind === 'invalid_token')
+      return new WebAuthPublicError('WEB_CLIENT_INVALID');
+  }
+  return new WebAuthPublicError('AUTH_SERVICE_UNAVAILABLE');
 }

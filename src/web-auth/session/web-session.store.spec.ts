@@ -25,6 +25,32 @@ describe('WebSessionStore', () => {
     del: jest.fn(async (key: string) => (entries.delete(key) ? 1 : 0)),
     eval: jest.fn(
       async (script: string, _keys: number, key: string, ...args: string[]) => {
+        if (script.includes('current.clients[ARGV[2]]')) {
+          const raw = entries.get(key);
+          if (!raw) return 0;
+          if (entries.get(args[0]) !== args[6]) return -5;
+          const current = JSON.parse(raw);
+          if (current.schemaVersion !== 2) return -2;
+          if (current.status !== 'active') return -3;
+          if (current.revision !== Number(args[1])) return -1;
+          const context = JSON.parse(args[3]);
+          if (
+            context.tool !== args[2] ||
+            context.subject !== current.subject ||
+            context.issuer !== current.issuer
+          )
+            return -2;
+          const now = Number(args[4]);
+          current.clients[args[2]] = context;
+          current.revision += 1;
+          current.lastActivityAt = now;
+          current.idleExpiresAt = Math.min(
+            current.absoluteExpiresAt,
+            now + Number(args[5]),
+          );
+          entries.set(key, JSON.stringify(current));
+          return 1;
+        }
         if (script.includes('current.revision')) {
           const raw = entries.get(key);
           if (!raw) return 0;
@@ -198,5 +224,91 @@ describe('WebSessionStore', () => {
     await expect(store.waitForRevision(sid, 1, 1)).rejects.toBeInstanceOf(
       Error,
     );
+  });
+
+  it('locks each tool independently and releases only the matching owner', async () => {
+    const sid = await store.create(fixture());
+    const beneficiaryOwner = await store.acquireClientLock(sid, 'beneficiary');
+    const otherOwner = await store.acquireClientLock(sid, 'test-tool');
+    expect(beneficiaryOwner).toBeDefined();
+    expect(otherOwner).toBeDefined();
+    expect(entries.has(`web:test:session:${sid}:client:beneficiary:lock`)).toBe(
+      true,
+    );
+    expect(entries.has(`web:test:session:${sid}:client:test-tool:lock`)).toBe(
+      true,
+    );
+    await store.releaseClientLock(sid, 'beneficiary', 'wrong-owner');
+    expect(entries.has(`web:test:session:${sid}:client:beneficiary:lock`)).toBe(
+      true,
+    );
+    await store.releaseClientLock(sid, 'beneficiary', beneficiaryOwner!);
+    expect(entries.has(`web:test:session:${sid}:client:beneficiary:lock`)).toBe(
+      false,
+    );
+    expect(entries.has(`web:test:session:${sid}:client:test-tool:lock`)).toBe(
+      true,
+    );
+  });
+
+  it('atomically writes a client context, activity, revision and idle TTL', async () => {
+    const session = fixture();
+    const sid = await store.create(session);
+    const now = Date.now();
+    const context = {
+      tool: 'beneficiary',
+      clientId: 'beneficiary-interface',
+      audience: 'beneficiary-interface',
+      resourceServer: 'beneficiary-interface',
+      source: 'token-exchange' as const,
+      tokens: {
+        tokenType: 'Bearer' as const,
+        accessToken: 'secondary-token',
+        accessExpiresAt: now + 300_000,
+        issuedAt: now,
+      },
+      subject: session.subject,
+      issuer: session.issuer,
+      realmRoles: ['member'],
+      clientRoles: ['read'],
+      groups: ['/beneficiary'],
+    };
+    await expect(
+      store.replaceClientContext(
+        sid,
+        1,
+        'beneficiary',
+        context,
+        await store.acquireClientLock(sid, 'beneficiary').then((v) => v!),
+        now,
+      ),
+    ).resolves.toBe('updated');
+    const stored = await store.get(sid);
+    expect(stored).toMatchObject({
+      revision: 2,
+      lastActivityAt: now,
+      clients: { beneficiary: context },
+    });
+    expect(stored.idleExpiresAt).toBeLessThanOrEqual(stored.absoluteExpiresAt);
+    await expect(
+      store.replaceClientContext(
+        sid,
+        1,
+        'beneficiary',
+        context,
+        entries.get(`web:test:session:${sid}:client:beneficiary:lock`)!,
+        now,
+      ),
+    ).resolves.toBe('revision_mismatch');
+    await expect(
+      store.replaceClientContext(
+        sid,
+        2,
+        'beneficiary',
+        context,
+        'lost-owner',
+        now,
+      ),
+    ).resolves.toBe('lock_lost');
   });
 });

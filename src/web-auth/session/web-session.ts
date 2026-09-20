@@ -31,10 +31,31 @@ export interface WebTokenSet {
 }
 
 export interface WebClientContext {
+  tool: string;
   clientId: string;
   audience: string;
+  resourceServer: string;
   source: 'token-exchange';
-  tokens: WebTokenSet;
+  tokens: WebClientTokenSet;
+  subject: string;
+  issuer: string;
+  azp?: string;
+  keycloakSessionId?: string;
+  realmRoles: string[];
+  clientRoles: string[];
+  groups: string[];
+}
+
+export interface WebClientTokenSet {
+  tokenType: 'Bearer';
+  accessToken: string;
+  accessExpiresAt: number;
+  refreshToken?: string;
+  refreshExpiresIn?: number;
+  idToken?: string;
+  issuedTokenType?: string;
+  scope?: string;
+  issuedAt: number;
 }
 
 function isTokenSet(value: unknown): value is WebTokenSet {
@@ -59,20 +80,66 @@ function isTokenSet(value: unknown): value is WebTokenSet {
   );
 }
 
+function isStringList(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) &&
+    value.every((item) => typeof item === 'string' && !!item) &&
+    new Set(value).size === value.length
+  );
+}
+
+export function isWebClientContext(value: unknown): value is WebClientContext {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const context = value as Record<string, any>;
+  const tokens = context.tokens as Record<string, unknown> | undefined;
+  return (
+    /^[a-z][a-z0-9-]{0,63}$/.test(context.tool) &&
+    typeof context.clientId === 'string' &&
+    !!context.clientId &&
+    typeof context.audience === 'string' &&
+    !!context.audience &&
+    typeof context.resourceServer === 'string' &&
+    !!context.resourceServer &&
+    context.source === 'token-exchange' &&
+    !!tokens &&
+    tokens.tokenType === 'Bearer' &&
+    typeof tokens.accessToken === 'string' &&
+    !!tokens.accessToken &&
+    Number.isSafeInteger(tokens.accessExpiresAt) &&
+    Number.isSafeInteger(tokens.issuedAt) &&
+    (tokens.accessExpiresAt as number) > (tokens.issuedAt as number) &&
+    (tokens.refreshToken === undefined ||
+      (typeof tokens.refreshToken === 'string' && !!tokens.refreshToken)) &&
+    (tokens.refreshExpiresIn === undefined ||
+      (Number.isSafeInteger(tokens.refreshExpiresIn) &&
+        (tokens.refreshExpiresIn as number) > 0)) &&
+    (tokens.idToken === undefined ||
+      (typeof tokens.idToken === 'string' && !!tokens.idToken)) &&
+    (tokens.issuedTokenType === undefined ||
+      (typeof tokens.issuedTokenType === 'string' &&
+        !!tokens.issuedTokenType)) &&
+    (tokens.scope === undefined || typeof tokens.scope === 'string') &&
+    typeof context.subject === 'string' &&
+    !!context.subject &&
+    typeof context.issuer === 'string' &&
+    !!context.issuer &&
+    (context.azp === undefined ||
+      (typeof context.azp === 'string' && !!context.azp)) &&
+    (context.keycloakSessionId === undefined ||
+      (typeof context.keycloakSessionId === 'string' &&
+        !!context.keycloakSessionId)) &&
+    isStringList(context.realmRoles) &&
+    isStringList(context.clientRoles) &&
+    isStringList(context.groups)
+  );
+}
+
 function isClientContexts(value: unknown): value is WebSession['clients'] {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
-  return Object.values(value).every((candidate) => {
-    if (!candidate || typeof candidate !== 'object') return false;
-    const context = candidate as Record<string, unknown>;
-    return (
-      typeof context.clientId === 'string' &&
-      !!context.clientId &&
-      typeof context.audience === 'string' &&
-      !!context.audience &&
-      context.source === 'token-exchange' &&
-      isTokenSet(context.tokens)
-    );
-  });
+  return Object.entries(value).every(
+    ([tool, candidate]) =>
+      isWebClientContext(candidate) && candidate.tool === tool,
+  );
 }
 
 export function isWebSession(value: unknown): value is WebSession {

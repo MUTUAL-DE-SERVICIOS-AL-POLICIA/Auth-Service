@@ -2,6 +2,7 @@ import { Controller, UseFilters } from '@nestjs/common';
 import { MessagePattern, Payload, RpcException } from '@nestjs/microservices';
 import {
   CheckWebSessionRequest,
+  EnsureWebClientContextRequest,
   ExchangeWebCodeRequest,
   StartWebLoginRequest,
   WebAuthPatterns,
@@ -28,6 +29,13 @@ export class WebAuthController {
   @MessagePattern(WebAuthPatterns.sessionCheck)
   check(@Payload() request: CheckWebSessionRequest) {
     return this.publicResult(() => this.webAuth.check(request));
+  }
+
+  @MessagePattern(WebAuthPatterns.clientEnsure)
+  ensureClient(@Payload() request: EnsureWebClientContextRequest) {
+    return this.publicResult(() =>
+      this.webAuth.ensureWebClientContext(request),
+    );
   }
 
   private async publicResult<T>(operation: () => Promise<T>): Promise<T> {

@@ -3,7 +3,13 @@ import { randomBytes } from 'node:crypto';
 import { createSid } from '../crypto';
 import { WebRedisService } from '../redis/web-redis.service';
 import { WebAuthConfig } from '../web-auth.config';
-import { assertSameIdentity, isWebSession, WebSession } from './web-session';
+import {
+  assertSameIdentity,
+  isWebClientContext,
+  isWebSession,
+  WebClientContext,
+  WebSession,
+} from './web-session';
 
 const REFRESH_LOCK_TTL_MS = 15_000;
 const UPDATE_SCRIPT = `
@@ -22,12 +28,39 @@ if redis.call('GET', KEYS[1]) == ARGV[1] then
 end
 return 0
 `;
+const UPDATE_CLIENT_CONTEXT_SCRIPT = `
+local raw = redis.call('GET', KEYS[1])
+if not raw then return 0 end
+if redis.call('GET', KEYS[2]) ~= ARGV[6] then return -5 end
+local ok, current = pcall(cjson.decode, raw)
+if not ok or current.schemaVersion ~= 2 then return -2 end
+if current.status ~= 'active' then return -3 end
+if current.revision ~= tonumber(ARGV[1]) then return -1 end
+local contextOk, context = pcall(cjson.decode, ARGV[3])
+if not contextOk or context.tool ~= ARGV[2] then return -2 end
+if context.subject ~= current.subject or context.issuer ~= current.issuer then return -2 end
+local now = tonumber(ARGV[4])
+if current.absoluteExpiresAt <= now or current.idleExpiresAt <= now then return -4 end
+local idleExpiresAt = math.min(current.absoluteExpiresAt, now + tonumber(ARGV[5]))
+local ttl = math.ceil((math.min(current.absoluteExpiresAt, idleExpiresAt) - now) / 1000)
+if ttl < 1 then return -4 end
+if type(current.clients) ~= 'table' then return -2 end
+current.clients[ARGV[2]] = context
+current.revision = current.revision + 1
+current.lastActivityAt = now
+current.idleExpiresAt = idleExpiresAt
+redis.call('SET', KEYS[1], cjson.encode(current), 'EX', ttl)
+return 1
+`;
 
 export class WebSessionError extends Error {
   constructor() {
     super('Web session unavailable or invalid');
   }
 }
+
+export type ClientContextUpdateResult =
+  'updated' | 'revision_mismatch' | 'lock_lost';
 
 @Injectable()
 export class WebSessionStore {
@@ -43,6 +76,11 @@ export class WebSessionStore {
 
   private lockKey(sid: string): string {
     return `${this.key(sid)}:refresh-lock`;
+  }
+
+  private clientLockKey(sid: string, tool: string): string {
+    if (!/^[a-z][a-z0-9-]{0,63}$/.test(tool)) throw new WebSessionError();
+    return `${this.key(sid)}:client:${tool}:lock`;
   }
 
   private ttl(session: WebSession, now = Date.now()): number {
@@ -142,6 +180,68 @@ export class WebSessionStore {
     await this.redis.execute((client) =>
       client.eval(RELEASE_LOCK_SCRIPT, 1, this.lockKey(sid), owner),
     );
+  }
+
+  async acquireClientLock(
+    sid: string,
+    tool: string,
+  ): Promise<string | undefined> {
+    const owner = randomBytes(32).toString('base64url');
+    const result = await this.redis.execute((client) =>
+      client.set(
+        this.clientLockKey(sid, tool),
+        owner,
+        'PX',
+        REFRESH_LOCK_TTL_MS,
+        'NX',
+      ),
+    );
+    return result === 'OK' ? owner : undefined;
+  }
+
+  async releaseClientLock(
+    sid: string,
+    tool: string,
+    owner: string,
+  ): Promise<void> {
+    await this.redis.execute((client) =>
+      client.eval(RELEASE_LOCK_SCRIPT, 1, this.clientLockKey(sid, tool), owner),
+    );
+  }
+
+  async replaceClientContext(
+    sid: string,
+    expectedRevision: number,
+    tool: string,
+    context: WebClientContext,
+    lockOwner: string,
+    now = Date.now(),
+  ): Promise<ClientContextUpdateResult> {
+    if (
+      !isWebClientContext(context) ||
+      context.tool !== tool ||
+      !Number.isSafeInteger(now)
+    ) {
+      throw new WebSessionError();
+    }
+    const result = await this.redis.execute((client) =>
+      client.eval(
+        UPDATE_CLIENT_CONTEXT_SCRIPT,
+        2,
+        this.key(sid),
+        this.clientLockKey(sid, tool),
+        String(expectedRevision),
+        tool,
+        JSON.stringify(context),
+        String(now),
+        String(this.config.sessionIdleTtlSeconds * 1000),
+        lockOwner,
+      ),
+    );
+    if (result === 1) return 'updated';
+    if (result === -1) return 'revision_mismatch';
+    if (result === -5) return 'lock_lost';
+    throw new WebSessionError();
   }
 
   async waitForRevision(
