@@ -11,11 +11,39 @@ const valid = {
   WEB_REDIS_HOST: 'redis',
   WEB_REDIS_PASSWORD: 'test-redis-password',
   WEB_REDIS_KEY_PREFIX: 'web',
+  WEB_CLIENT_CATALOG: '{}',
 };
 
 describe('web auth configuration', () => {
   it('does not require web variables when disabled', () => {
-    expect(readWebAuthConfig({ WEB_AUTH_ENABLED: 'false' })).toBeNull();
+    expect(
+      readWebAuthConfig({
+        WEB_AUTH_ENABLED: 'false',
+        WEB_CLIENT_CATALOG: '{invalid',
+      }),
+    ).toBeNull();
+  });
+  it('exposes exact catalog resolution without selecting the Hub implicitly', () => {
+    const config = readWebAuthConfig({
+      ...valid,
+      OIDC_HUB_CLIENT_ID: 'hub-interface',
+      WEB_CLIENT_CATALOG: JSON.stringify({
+        beneficiary: {
+          clientId: 'beneficiary-interface',
+          audience: 'beneficiary-interface',
+          resourceServer: 'beneficiary-interface',
+        },
+      }),
+    });
+
+    expect(config?.resolveWebTool('beneficiary')).toEqual({
+      clientId: 'beneficiary-interface',
+      audience: 'beneficiary-interface',
+      resourceServer: 'beneficiary-interface',
+    });
+    expect(() => config?.resolveWebTool('hub-interface')).toThrow(
+      'Web tool is not configured',
+    );
   });
   it('requires a secret only for a confidential Hub', () => {
     expect(readWebAuthConfig(valid)?.hubClientSecret).toBeUndefined();

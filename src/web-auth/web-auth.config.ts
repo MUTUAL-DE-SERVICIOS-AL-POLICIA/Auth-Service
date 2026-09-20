@@ -1,3 +1,10 @@
+import {
+  parseWebClientCatalog,
+  resolveWebTool,
+  WebClientCatalog,
+  WebClientCatalogEntry,
+} from './web-client-catalog';
+
 export interface WebAuthConfig {
   enabled: boolean;
   environment: string;
@@ -15,6 +22,8 @@ export interface WebAuthConfig {
   sessionTtlSeconds: number;
   sessionIdleTtlSeconds: number;
   refreshSkewSeconds: number;
+  clientCatalog: WebClientCatalog;
+  resolveWebTool(toolKey: string): Readonly<WebClientCatalogEntry>;
 }
 
 function absoluteUrl(value: string | undefined, name: string): string {
@@ -101,12 +110,17 @@ export function readWebAuthConfig(
       'OIDC_ISSUER and OIDC_HUB_CALLBACK_URL must use HTTPS in production',
     );
   }
+  const hubClientId = required(env.OIDC_HUB_CLIENT_ID, 'OIDC_HUB_CLIENT_ID');
+  const clientCatalog = parseWebClientCatalog(
+    env.WEB_CLIENT_CATALOG,
+    hubClientId,
+  );
   return {
     enabled: true,
     environment,
     issuer,
     internalBaseUrl,
-    hubClientId: required(env.OIDC_HUB_CLIENT_ID, 'OIDC_HUB_CLIENT_ID'),
+    hubClientId,
     hubClientType,
     hubClientSecret:
       hubClientType === 'confidential' ? env.OIDC_HUB_CLIENT_SECRET : undefined,
@@ -131,5 +145,7 @@ export function readWebAuthConfig(
       'WEB_REFRESH_SKEW_SECONDS',
       120,
     ),
+    clientCatalog,
+    resolveWebTool: (toolKey: string) => resolveWebTool(clientCatalog, toolKey),
   };
 }

@@ -1,0 +1,120 @@
+export interface WebClientCatalogEntry {
+  readonly clientId: string;
+  readonly audience: string;
+  readonly resourceServer: string;
+}
+
+export type WebClientCatalog = Readonly<
+  Record<string, Readonly<WebClientCatalogEntry>>
+>;
+
+export class WebClientCatalogConfigError extends Error {
+  constructor() {
+    super('WEB_CLIENT_CATALOG is invalid');
+    this.name = 'WebClientCatalogConfigError';
+  }
+}
+
+export class UnknownWebToolError extends Error {
+  constructor() {
+    super('Web tool is not configured');
+    this.name = 'UnknownWebToolError';
+  }
+}
+
+const TOOL_KEY_PATTERN = /^[a-z][a-z0-9-]{0,63}$/;
+const TECHNICAL_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
+const ENTRY_PROPERTIES = ['clientId', 'audience', 'resourceServer'] as const;
+const DANGEROUS_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
+
+function invalidCatalog(): never {
+  throw new WebClientCatalogConfigError();
+}
+
+function readTechnicalId(value: unknown): string {
+  if (typeof value !== 'string' || !TECHNICAL_ID_PATTERN.test(value)) {
+    invalidCatalog();
+  }
+  return value;
+}
+
+export function parseWebClientCatalog(
+  raw: string | undefined,
+  hubClientId: string,
+): WebClientCatalog {
+  const source = raw === undefined ? '{}' : raw;
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(source);
+  } catch {
+    invalidCatalog();
+  }
+
+  if (parsed === null || Array.isArray(parsed) || typeof parsed !== 'object') {
+    invalidCatalog();
+  }
+
+  const catalog: Record<
+    string,
+    Readonly<WebClientCatalogEntry>
+  > = Object.create(null) as Record<string, Readonly<WebClientCatalogEntry>>;
+  const clientIds = new Set<string>();
+  const audiences = new Set<string>();
+  const resourceServers = new Set<string>();
+
+  for (const [toolKey, rawEntry] of Object.entries(parsed)) {
+    if (
+      DANGEROUS_KEYS.has(toolKey) ||
+      !TOOL_KEY_PATTERN.test(toolKey) ||
+      rawEntry === null ||
+      Array.isArray(rawEntry) ||
+      typeof rawEntry !== 'object'
+    ) {
+      invalidCatalog();
+    }
+
+    const properties = Object.keys(rawEntry);
+    if (
+      properties.length !== ENTRY_PROPERTIES.length ||
+      !properties.every((property) =>
+        (ENTRY_PROPERTIES as readonly string[]).includes(property),
+      )
+    ) {
+      invalidCatalog();
+    }
+
+    const values = rawEntry as Record<string, unknown>;
+    const clientId = readTechnicalId(values.clientId);
+    const audience = readTechnicalId(values.audience);
+    const resourceServer = readTechnicalId(values.resourceServer);
+
+    if (
+      clientId === hubClientId ||
+      audience === hubClientId ||
+      resourceServer === hubClientId ||
+      clientIds.has(clientId) ||
+      audiences.has(audience) ||
+      resourceServers.has(resourceServer)
+    ) {
+      invalidCatalog();
+    }
+
+    clientIds.add(clientId);
+    audiences.add(audience);
+    resourceServers.add(resourceServer);
+    catalog[toolKey] = Object.freeze({ clientId, audience, resourceServer });
+  }
+
+  return Object.freeze(catalog);
+}
+
+export function resolveWebTool(
+  catalog: WebClientCatalog,
+  toolKey: string,
+): Readonly<WebClientCatalogEntry> {
+  if (!TOOL_KEY_PATTERN.test(toolKey)) throw new UnknownWebToolError();
+  const entry = catalog[toolKey];
+  if (!entry) throw new UnknownWebToolError();
+  return entry;
+}
