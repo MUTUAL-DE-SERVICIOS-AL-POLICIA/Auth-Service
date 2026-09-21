@@ -65,7 +65,11 @@ function session(client = context()): WebSession {
     absoluteExpiresAt: now + 20_000_000,
     idleExpiresAt: now + 7_000_000,
     lastActivityAt: now - 1000,
-    identity: { sub: 'person-1' },
+    identity: {
+      sub: 'person-1',
+      preferredUsername: 'operator',
+      name: 'Test Operator',
+    },
     primary: {
       tokenType: 'Bearer',
       accessToken: 'primary-token',
@@ -114,18 +118,90 @@ describe('WebAuthService authorization coordination', () => {
   const authorize = (request: Record<string, unknown> = {}) =>
     service.checkAuthorization({
       sid,
-      operation: 'beneficiary.persons.read',
+      tool: 'beneficiary',
+      resource: 'persons',
+      scope: 'read',
       ...request,
     } as any);
 
-  it.each([true, false])('returns only authorized=%s', async (decision) => {
-    oidc.evaluateUmaDecision.mockResolvedValueOnce(decision);
-    await expect(authorize()).resolves.toEqual({ authorized: decision });
+  it('returns an approved decision with only the minimum actor', async () => {
+    await expect(authorize()).resolves.toEqual({
+      authorized: true,
+      actor: {
+        sub: 'person-1',
+        preferredUsername: 'operator',
+        name: 'Test Operator',
+      },
+    });
     expect(oidc.evaluateUmaDecision).toHaveBeenCalledWith({
       accessToken: 'secondary-token',
       target: config.resolveWebTool('beneficiary'),
       resource: 'persons',
       scope: 'read',
+    });
+  });
+
+  it('returns a denied decision without actor', async () => {
+    oidc.evaluateUmaDecision.mockResolvedValueOnce(false);
+    await expect(authorize()).resolves.toEqual({ authorized: false });
+  });
+
+  it('does not invent optional actor fields', async () => {
+    current.identity = { sub: current.subject };
+    await expect(authorize()).resolves.toEqual({
+      authorized: true,
+      actor: { sub: current.subject },
+    });
+  });
+
+  it.each([
+    [
+      'empty preferred username',
+      { preferredUsername: '', name: 'Valid Name' },
+      { name: 'Valid Name' },
+    ],
+    [
+      'blank preferred username',
+      { preferredUsername: '   ', name: 'Valid Name' },
+      { name: 'Valid Name' },
+    ],
+    [
+      'empty name',
+      { preferredUsername: 'valid-user', name: '' },
+      { preferredUsername: 'valid-user' },
+    ],
+    [
+      'blank name',
+      { preferredUsername: 'valid-user', name: '   ' },
+      { preferredUsername: 'valid-user' },
+    ],
+    ['both blank', { preferredUsername: ' ', name: '\t' }, {}],
+  ])(
+    'omits %s without changing the persisted identity',
+    async (_label, optional, expected) => {
+      current.identity = { sub: current.subject, ...optional };
+      const originalIdentity = { ...current.identity };
+      await expect(authorize()).resolves.toEqual({
+        authorized: true,
+        actor: { sub: current.subject, ...expected },
+      });
+      expect(current.identity).toEqual(originalIdentity);
+    },
+  );
+
+  it('preserves valid optional actor values without normalizing them', async () => {
+    current.identity = {
+      sub: current.subject,
+      preferredUsername: ' valid-user ',
+      name: ' Valid Name ',
+    };
+    await expect(authorize()).resolves.toEqual({
+      authorized: true,
+      actor: {
+        sub: current.subject,
+        preferredUsername: ' valid-user ',
+        name: ' Valid Name ',
+      },
     });
   });
 
@@ -193,29 +269,61 @@ describe('WebAuthService authorization coordination', () => {
     expect(oidc.evaluateUmaDecision).not.toHaveBeenCalledWith(
       expect.objectContaining({ accessToken: 'secondary-token' }),
     );
-    expect(result).toEqual({ authorized: true });
+    expect(result).toEqual({
+      authorized: true,
+      actor: {
+        sub: 'person-1',
+        preferredUsername: 'operator',
+        name: 'Test Operator',
+      },
+    });
   });
 
   it.each([
-    { operation: 'beneficiary.persons.write' },
-    { operation: 'persons#read' },
-    { resource: 'persons' },
-    { scope: 'read' },
+    { operation: 'beneficiary.persons.read' },
     { audience: 'other' },
     { clientId: 'other' },
-    { tool: 'beneficiary' },
     { resourceServer: 'beneficiary-interface' },
     { permission: 'persons#read' },
-  ])(
-    'rejects unknown operations and caller-controlled fields',
-    async (extra) => {
-      await expect(authorize(extra)).rejects.toMatchObject({
-        code: 'INVALID_AUTHORIZATION_REQUEST',
-      });
-      expect(service.ensureWebClientContext).not.toHaveBeenCalled();
-      expect(oidc.evaluateUmaDecision).not.toHaveBeenCalled();
-    },
-  );
+  ])('rejects caller-controlled or additional fields', async (extra) => {
+    await expect(authorize(extra)).rejects.toMatchObject({
+      code: 'INVALID_AUTHORIZATION_REQUEST',
+    });
+    expect(service.ensureWebClientContext).not.toHaveBeenCalled();
+    expect(oidc.evaluateUmaDecision).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['unknown tool', { tool: 'unknown' }],
+    ['invalid tool', { tool: 'Beneficiary' }],
+    ['resource separator', { resource: 'persons#read' }],
+    ['resource URL', { resource: 'https://example.test/persons' }],
+    ['resource whitespace', { resource: 'persons records' }],
+    ['resource comma', { resource: 'persons,records' }],
+    ['scope separator', { scope: 'read#write' }],
+    ['scope URL', { scope: 'https://example.test/read' }],
+    ['scope whitespace', { scope: 'read write' }],
+    ['scope comma', { scope: 'read,write' }],
+    ['empty resource', { resource: '' }],
+    ['empty scope', { scope: '' }],
+  ])('rejects %s', async (_label, replacement) => {
+    await expect(authorize(replacement)).rejects.toMatchObject({
+      code: 'INVALID_AUTHORIZATION_REQUEST',
+    });
+    expect(oidc.evaluateUmaDecision).not.toHaveBeenCalled();
+  });
+
+  it('rejects a request with a non-plain prototype', async () => {
+    const request = Object.assign(Object.create({ inherited: true }), {
+      sid,
+      tool: 'beneficiary',
+      resource: 'persons',
+      scope: 'read',
+    });
+    await expect(service.checkAuthorization(request)).rejects.toMatchObject({
+      code: 'INVALID_AUTHORIZATION_REQUEST',
+    });
+  });
 
   it('preserves SESSION_INVALID from context coordination', async () => {
     (service.ensureWebClientContext as jest.Mock).mockRejectedValueOnce(
@@ -240,12 +348,22 @@ describe('WebAuthService authorization coordination', () => {
     });
   });
 
-  it('does not log or expose tokens, SID, claims or operation details', async () => {
+  it('does not log or expose tokens, SID, roles, groups or claims', async () => {
     const spies = [console.log, console.warn, console.error].map((method) =>
       jest.spyOn(console, method.name as 'log').mockImplementation(),
     );
     const result = await authorize();
-    expect(JSON.stringify(result)).toBe('{"authorized":true}');
+    expect(result).toEqual({
+      authorized: true,
+      actor: {
+        sub: 'person-1',
+        preferredUsername: 'operator',
+        name: 'Test Operator',
+      },
+    });
+    expect(JSON.stringify(result)).not.toMatch(
+      /secondary-token|primary-token|realmRoles|clientRoles|groups|sid/,
+    );
     for (const spy of spies) expect(spy).not.toHaveBeenCalled();
     for (const spy of spies) spy.mockRestore();
   });

@@ -12,6 +12,7 @@ import {
   PresentationIdentity,
   StartWebLoginRequest,
   StartWebLoginResponse,
+  WebAuthorizationActor,
 } from './contracts/web-auth.contracts';
 import {
   createNonce,
@@ -46,11 +47,11 @@ import {
   UnknownWebToolError,
   WebClientCatalogEntry,
 } from './web-client-catalog';
-import { resolveWebAuthorizationOperation } from './web-authorization-operations';
 
 const OPAQUE_ID = /^[A-Za-z0-9_-]{43,128}$/;
 const ABSOLUTE_SESSION_MAX_MS = 8 * 60 * 60 * 1000;
 const TOOL_KEY = /^[a-z][a-z0-9-]{0,63}$/;
+const WEB_AUTHORIZATION_IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 const CLIENT_ENSURE_MAX_ATTEMPTS = 3;
 
 class RetryClientEnsureError extends Error {}
@@ -259,29 +260,41 @@ export class WebAuthService {
       if (
         !input ||
         typeof input !== 'object' ||
-        Object.keys(input).length !== 2 ||
+        Object.getPrototypeOf(input) !== Object.prototype ||
+        Object.keys(input).length !== 4 ||
         !Object.prototype.hasOwnProperty.call(input, 'sid') ||
-        !Object.prototype.hasOwnProperty.call(input, 'operation') ||
-        !OPAQUE_ID.test(input.sid)
+        !Object.prototype.hasOwnProperty.call(input, 'tool') ||
+        !Object.prototype.hasOwnProperty.call(input, 'resource') ||
+        !Object.prototype.hasOwnProperty.call(input, 'scope') ||
+        typeof input.sid !== 'string' ||
+        typeof input.tool !== 'string' ||
+        typeof input.resource !== 'string' ||
+        typeof input.scope !== 'string' ||
+        !OPAQUE_ID.test(input.sid) ||
+        !TOOL_KEY.test(input.tool) ||
+        !WEB_AUTHORIZATION_IDENTIFIER.test(input.resource) ||
+        !WEB_AUTHORIZATION_IDENTIFIER.test(input.scope)
       ) {
         throw new WebAuthPublicError('INVALID_AUTHORIZATION_REQUEST');
       }
-      const operation = resolveWebAuthorizationOperation(input.operation);
-      if (!operation)
+      let target: Readonly<WebClientCatalogEntry>;
+      try {
+        target = dependencies.config.resolveWebTool(input.tool);
+      } catch {
         throw new WebAuthPublicError('INVALID_AUTHORIZATION_REQUEST');
-      const target = dependencies.config.resolveWebTool(operation.tool);
+      }
 
       await this.ensureWebClientContext({
         sid: input.sid,
-        tool: operation.tool,
+        tool: input.tool,
       });
       const session = await dependencies.sessions.get(input.sid);
-      const context = session.clients[operation.tool];
+      const context = session.clients[input.tool];
       if (
         !this.contextIsUsable(
           context,
           session,
-          operation.tool,
+          input.tool,
           target,
           dependencies.config,
         )
@@ -289,14 +302,28 @@ export class WebAuthService {
         throw new WebAuthPublicError('AUTH_SERVICE_UNAVAILABLE');
       }
 
-      return {
-        authorized: await dependencies.oidc.evaluateUmaDecision({
-          accessToken: context.tokens.accessToken,
-          target,
-          resource: operation.resource,
-          scope: operation.scope,
-        }),
+      const authorized = await dependencies.oidc.evaluateUmaDecision({
+        accessToken: context.tokens.accessToken,
+        target,
+        resource: input.resource,
+        scope: input.scope,
+      });
+      if (!authorized) return { authorized: false };
+
+      const actor: WebAuthorizationActor = {
+        sub: session.subject,
       };
+      if (
+        typeof session.identity.preferredUsername === 'string' &&
+        /\S/.test(session.identity.preferredUsername)
+      )
+        actor.preferredUsername = session.identity.preferredUsername;
+      if (
+        typeof session.identity.name === 'string' &&
+        /\S/.test(session.identity.name)
+      )
+        actor.name = session.identity.name;
+      return { authorized: true, actor };
     } catch (error) {
       throw asAuthorizationError(error);
     }
