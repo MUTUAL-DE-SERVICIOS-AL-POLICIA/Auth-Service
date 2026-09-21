@@ -85,9 +85,19 @@ export interface EnsureWebClientContextResponse {
   sessionAbsoluteExpiresAt: number;
 }
 
+export interface CheckWebAuthorizationRequest {
+  sid: string;
+  operation: 'beneficiary.persons.read';
+}
+
+export interface CheckWebAuthorizationResponse {
+  authorized: boolean;
+}
+
 export const WebAuthPatterns = {
   loginStart: 'web-auth.login.start',
   loginExchange: 'web-auth.login.exchange',
   sessionCheck: 'web-auth.session.check',
   clientEnsure: 'web-auth.client.ensure',
+  authorizationCheck: 'web-auth.authorization.check',
 } as const;

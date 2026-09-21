@@ -10,6 +10,7 @@ export type WebAuthErrorCode =
   | 'OIDC_LOGIN_FAILED'
   | 'SESSION_INVALID'
   | 'INVALID_CLIENT_REQUEST'
+  | 'INVALID_AUTHORIZATION_REQUEST'
   | 'WEB_TOOL_UNAVAILABLE'
   | 'WEB_CLIENT_ACCESS_DENIED'
   | 'WEB_CLIENT_INVALID'
@@ -22,6 +23,7 @@ const messages: Record<WebAuthErrorCode, string> = {
   OIDC_LOGIN_FAILED: 'OIDC login failed',
   SESSION_INVALID: 'Session is invalid or expired',
   INVALID_CLIENT_REQUEST: 'Invalid web client request',
+  INVALID_AUTHORIZATION_REQUEST: 'Invalid web authorization request',
   WEB_TOOL_UNAVAILABLE: 'Web tool is unavailable',
   WEB_CLIENT_ACCESS_DENIED: 'Web client access was denied',
   WEB_CLIENT_INVALID: 'Web client response is invalid',
@@ -88,5 +90,12 @@ export function asClientEnsureError(error: unknown): WebAuthPublicError {
     if (error.kind === 'invalid_response' || error.kind === 'invalid_token')
       return new WebAuthPublicError('WEB_CLIENT_INVALID');
   }
+  return new WebAuthPublicError('AUTH_SERVICE_UNAVAILABLE');
+}
+
+export function asAuthorizationError(error: unknown): WebAuthPublicError {
+  if (error instanceof WebAuthPublicError) return error;
+  if (error instanceof WebSessionError)
+    return new WebAuthPublicError('SESSION_INVALID');
   return new WebAuthPublicError('AUTH_SERVICE_UNAVAILABLE');
 }

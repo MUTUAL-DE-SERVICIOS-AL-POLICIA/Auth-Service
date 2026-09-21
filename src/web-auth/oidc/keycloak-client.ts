@@ -51,9 +51,20 @@ export interface ExchangedWebClientToken {
   claims: ExchangedWebClientClaims;
 }
 
+export interface UmaDecisionRequest {
+  accessToken: string;
+  target: Readonly<WebClientCatalogEntry>;
+  resource: string;
+  scope: string;
+}
+
 const ACCESS_TOKEN_TYPE = 'urn:ietf:params:oauth:token-type:access_token';
 const TOKEN_EXCHANGE_GRANT = 'urn:ietf:params:oauth:grant-type:token-exchange';
+const UMA_TICKET_GRANT = 'urn:ietf:params:oauth:grant-type:uma-ticket';
 const MAX_TOKEN_RESPONSE_BYTES = 64 * 1024;
+const UMA_NAME = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
+const UMA_DENIAL_ERRORS = new Set(['access_denied']);
+const OAUTH_ERROR_VALUE_MAX_LENGTH = 2048;
 
 export class OidcError extends Error {
   constructor(
@@ -107,9 +118,12 @@ export class KeycloakClient {
 
   private async boundedJson(response: Response): Promise<unknown> {
     const contentType = response.headers.get('content-type') || '';
+    const mediaType = contentType
+      .split(';', 1)[0]
+      .replace(/^[ \t]+|[ \t]+$/g, '');
     const contentLength = Number(response.headers.get('content-length'));
     if (
-      !contentType.toLowerCase().includes('application/json') ||
+      mediaType.toLowerCase() !== 'application/json' ||
       (Number.isFinite(contentLength) &&
         contentLength > MAX_TOKEN_RESPONSE_BYTES)
     ) {
@@ -485,6 +499,80 @@ export class KeycloakClient {
       ...(scope !== undefined ? { scope } : {}),
       claims,
     });
+  }
+
+  async evaluateUmaDecision(input: UmaDecisionRequest): Promise<boolean> {
+    if (
+      !input.accessToken ||
+      !Object.values(this.config.clientCatalog).includes(input.target) ||
+      !UMA_NAME.test(input.resource) ||
+      !UMA_NAME.test(input.scope)
+    ) {
+      throw new OidcError('invalid_configuration');
+    }
+
+    const metadata = await this.discovery();
+    const body = new URLSearchParams({
+      grant_type: UMA_TICKET_GRANT,
+      audience: input.target.resourceServer,
+      permission: `${input.resource}#${input.scope}`,
+      response_mode: 'decision',
+    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3000);
+    try {
+      const response = await fetch(this.networkUrl(metadata.token_endpoint), {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${input.accessToken}`,
+          'content-type': 'application/x-www-form-urlencoded',
+        },
+        body,
+        signal: controller.signal,
+        redirect: 'error',
+      });
+      const value = await this.boundedJson(response);
+      if (!value || Array.isArray(value) || typeof value !== 'object')
+        throw new OidcError('invalid_response');
+      if (response.status === 401 || response.status === 403) {
+        const error = value as Record<string, unknown>;
+        const allowedKeys = new Set([
+          'error',
+          'error_description',
+          'error_uri',
+        ]);
+        const optionalValueIsValid = (key: string) =>
+          error[key] === undefined ||
+          (typeof error[key] === 'string' &&
+            error[key].length > 0 &&
+            error[key].length <= OAUTH_ERROR_VALUE_MAX_LENGTH);
+        if (
+          Object.keys(error).every((key) => allowedKeys.has(key)) &&
+          typeof error.error === 'string' &&
+          UMA_DENIAL_ERRORS.has(error.error) &&
+          optionalValueIsValid('error_description') &&
+          optionalValueIsValid('error_uri')
+        ) {
+          return false;
+        }
+        throw new OidcError('invalid_response');
+      }
+      if (!response.ok)
+        throw new OidcError(
+          response.status >= 500 ? 'unavailable' : 'invalid_response',
+        );
+      const decision = value as Record<string, unknown>;
+      const result = decision.result;
+      if (Object.keys(decision).length !== 1 || typeof result !== 'boolean')
+        throw new OidcError('invalid_response');
+      return result === true;
+    } catch (error) {
+      if (controller.signal.aborted) throw new OidcError('unavailable');
+      if (error instanceof OidcError) throw error;
+      throw new OidcError('unavailable');
+    } finally {
+      clearTimeout(timeout);
+    }
   }
 
   private async signingKeys(): Promise<ReturnType<typeof createRemoteJWKSet>> {

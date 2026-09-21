@@ -3,6 +3,8 @@ import { JWTPayload } from 'jose';
 import {
   CheckWebSessionRequest,
   CheckWebSessionResponse,
+  CheckWebAuthorizationRequest,
+  CheckWebAuthorizationResponse,
   EnsureWebClientContextRequest,
   EnsureWebClientContextResponse,
   ExchangeWebCodeRequest,
@@ -19,6 +21,7 @@ import {
 } from './crypto';
 import {
   asExchangeError,
+  asAuthorizationError,
   asClientEnsureError,
   asSessionError,
   asStartError,
@@ -43,6 +46,7 @@ import {
   UnknownWebToolError,
   WebClientCatalogEntry,
 } from './web-client-catalog';
+import { resolveWebAuthorizationOperation } from './web-authorization-operations';
 
 const OPAQUE_ID = /^[A-Za-z0-9_-]{43,128}$/;
 const ABSOLUTE_SESSION_MAX_MS = 8 * 60 * 60 * 1000;
@@ -244,6 +248,57 @@ export class WebAuthService {
       );
     } catch (error) {
       throw asClientEnsureError(error);
+    }
+  }
+
+  async checkAuthorization(
+    input: CheckWebAuthorizationRequest,
+  ): Promise<CheckWebAuthorizationResponse> {
+    const dependencies = this.enabled();
+    try {
+      if (
+        !input ||
+        typeof input !== 'object' ||
+        Object.keys(input).length !== 2 ||
+        !Object.prototype.hasOwnProperty.call(input, 'sid') ||
+        !Object.prototype.hasOwnProperty.call(input, 'operation') ||
+        !OPAQUE_ID.test(input.sid)
+      ) {
+        throw new WebAuthPublicError('INVALID_AUTHORIZATION_REQUEST');
+      }
+      const operation = resolveWebAuthorizationOperation(input.operation);
+      if (!operation)
+        throw new WebAuthPublicError('INVALID_AUTHORIZATION_REQUEST');
+      const target = dependencies.config.resolveWebTool(operation.tool);
+
+      await this.ensureWebClientContext({
+        sid: input.sid,
+        tool: operation.tool,
+      });
+      const session = await dependencies.sessions.get(input.sid);
+      const context = session.clients[operation.tool];
+      if (
+        !this.contextIsUsable(
+          context,
+          session,
+          operation.tool,
+          target,
+          dependencies.config,
+        )
+      ) {
+        throw new WebAuthPublicError('AUTH_SERVICE_UNAVAILABLE');
+      }
+
+      return {
+        authorized: await dependencies.oidc.evaluateUmaDecision({
+          accessToken: context.tokens.accessToken,
+          target,
+          resource: operation.resource,
+          scope: operation.scope,
+        }),
+      };
+    } catch (error) {
+      throw asAuthorizationError(error);
     }
   }
 

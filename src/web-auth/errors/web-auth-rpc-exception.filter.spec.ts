@@ -19,6 +19,7 @@ const knownCodes = [
   'OIDC_LOGIN_FAILED',
   'SESSION_INVALID',
   'INVALID_CLIENT_REQUEST',
+  'INVALID_AUTHORIZATION_REQUEST',
   'WEB_TOOL_UNAVAILABLE',
   'WEB_CLIENT_ACCESS_DENIED',
   'WEB_CLIENT_INVALID',
@@ -117,6 +118,15 @@ describe('WebAuthRpcExceptionFilter', () => {
         WebAuthController.prototype.ensureClient,
       ),
     ).toEqual([WebAuthPatterns.clientEnsure]);
+  });
+
+  it('keeps authorization check on the filtered WebAuthController', () => {
+    expect(
+      Reflect.getMetadata(
+        PATTERN_METADATA,
+        WebAuthController.prototype.authorize,
+      ),
+    ).toEqual([WebAuthPatterns.authorizationCheck]);
   });
 
   it('prevents a later global filter from processing a handled error', async () => {

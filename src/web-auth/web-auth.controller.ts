@@ -2,6 +2,7 @@ import { Controller, UseFilters } from '@nestjs/common';
 import { MessagePattern, Payload, RpcException } from '@nestjs/microservices';
 import {
   CheckWebSessionRequest,
+  CheckWebAuthorizationRequest,
   EnsureWebClientContextRequest,
   ExchangeWebCodeRequest,
   StartWebLoginRequest,
@@ -36,6 +37,11 @@ export class WebAuthController {
     return this.publicResult(() =>
       this.webAuth.ensureWebClientContext(request),
     );
+  }
+
+  @MessagePattern(WebAuthPatterns.authorizationCheck)
+  authorize(@Payload() request: CheckWebAuthorizationRequest) {
+    return this.publicResult(() => this.webAuth.checkAuthorization(request));
   }
 
   private async publicResult<T>(operation: () => Promise<T>): Promise<T> {
