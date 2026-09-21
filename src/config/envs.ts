@@ -23,6 +23,8 @@ interface EnvVars {
   API_KEY: string;
   USER_TEST_DEVICE: string;
   USER_TEST_ACCESS: boolean;
+  BCB_JWT_PRIVATE_KEY: string;
+  BCB_JWT_PUBLIC_KEY: string;
 }
 
 const envsSchema = joi
@@ -41,6 +43,8 @@ const envsSchema = joi
     API_KEY: joi.string(),
     USER_TEST_DEVICE: joi.string(),
     USER_TEST_ACCESS: joi.boolean().default(false),
+    BCB_JWT_PRIVATE_KEY: joi.string(),
+    BCB_JWT_PUBLIC_KEY: joi.string(),
 
     DB_PASSWORD: joi.string().required(),
     DB_DATABASE: joi.string().required(),
@@ -105,4 +109,9 @@ export const DbEnvs = {
 export const TestDeviceEnvs = {
   userTestDevice: envVars.USER_TEST_DEVICE,
   userTestAccess: envVars.USER_TEST_ACCESS,
+};
+
+export const BcbJwtEnvs = {
+  jwtPrivateKey: envVars.BCB_JWT_PRIVATE_KEY,
+  jwtPublicKey: envVars.BCB_JWT_PUBLIC_KEY,
 };
