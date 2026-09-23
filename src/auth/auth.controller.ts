@@ -1,24 +1,72 @@
-import { Controller, Logger } from '@nestjs/common';
+import { Controller, UseFilters } from '@nestjs/common';
+import { MessagePattern, Payload, RpcException } from '@nestjs/microservices';
+import {
+  BackchannelLogoutRequest,
+  CheckSessionRequest,
+  CheckWebAuthorizationRequest,
+  EnsureWebClientContextRequest,
+  ExchangeWebCodeRequest,
+  LogoutWebSessionRequest,
+  StartWebLoginRequest,
+  WebAuthPatterns,
+} from './contracts/auth.contracts';
+import { AuthPublicError } from './errors/auth.errors';
+import { AuthRpcExceptionFilter } from './errors/auth-rpc-exception.filter';
 import { AuthService } from './auth.service';
-import { MessagePattern, Payload } from '@nestjs/microservices';
 
-@Controller('auth')
+@Controller()
+@UseFilters(new AuthRpcExceptionFilter())
 export class AuthController {
-  private readonly logger = new Logger('AuthController');
-  constructor(private readonly authService: AuthService) {}
+  constructor(private readonly webAuth: AuthService) {}
 
-  @MessagePattern('auth.login')
-  async login(@Payload() data: any) {
-    return this.authService.login(data.username, data.password);
+  @MessagePattern(WebAuthPatterns.loginStart)
+  start(@Payload() request: StartWebLoginRequest) {
+    return this.publicResult(() => this.webAuth.start(request));
   }
 
-  @MessagePattern('auth.verify.token')
-  async verifyToken(@Payload() token: string) {
-    return this.authService.verifyToken(token);
+  @MessagePattern(WebAuthPatterns.loginExchange)
+  exchange(@Payload() request: ExchangeWebCodeRequest) {
+    return this.publicResult(() => this.webAuth.exchange(request));
   }
 
-  @MessagePattern('auth.verify.apiKey')
-  async verifyApiKey(@Payload() apiKey: string) {
-    return this.authService.verifyApiKey(apiKey);
+  @MessagePattern(WebAuthPatterns.logout)
+  logout(@Payload() request: LogoutWebSessionRequest) {
+    return this.publicResult(() => this.webAuth.logout(request));
+  }
+
+  @MessagePattern(WebAuthPatterns.sessionCheck)
+  check(@Payload() request: CheckSessionRequest) {
+    return this.publicResult(() => this.webAuth.check(request));
+  }
+
+  @MessagePattern(WebAuthPatterns.backchannelLogout)
+  backchannelLogout(@Payload() request: BackchannelLogoutRequest) {
+    return this.publicResult(() =>
+      this.webAuth.backchannelLogout(request.logoutToken),
+    );
+  }
+
+  @MessagePattern(WebAuthPatterns.clientEnsure)
+  ensureClient(@Payload() request: EnsureWebClientContextRequest) {
+    return this.publicResult(() =>
+      this.webAuth.ensureWebClientContext(request),
+    );
+  }
+
+  @MessagePattern(WebAuthPatterns.authorizationCheck)
+  authorize(@Payload() request: CheckWebAuthorizationRequest) {
+    return this.publicResult(() => this.webAuth.checkAuthorization(request));
+  }
+
+  private async publicResult<T>(operation: () => Promise<T>): Promise<T> {
+    try {
+      return await operation();
+    } catch (error) {
+      const publicError =
+        error instanceof AuthPublicError
+          ? error
+          : new AuthPublicError('AUTH_SERVICE_UNAVAILABLE');
+      throw new RpcException(publicError.toResponse());
+    }
   }
 }
