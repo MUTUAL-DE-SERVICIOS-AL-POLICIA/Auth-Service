@@ -1,10 +1,7 @@
 /// <reference types="jest" />
 import { KeycloakClient, OidcError } from './keycloak-client';
 import { AuthConfig } from '../config/auth.config';
-import {
-  parseClientCatalog,
-  resolveTool,
-} from '../config/client-catalog';
+import { parseClientCatalog, resolveTool } from '../config/client-catalog';
 
 const catalog = parseClientCatalog(
   JSON.stringify({
@@ -219,5 +216,83 @@ describe('KeycloakClient UMA decision', () => {
       }),
     ).rejects.toMatchObject({ kind: 'invalid_configuration' });
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('KeycloakClient UMA permissions', () => {
+  let client: KeycloakClient;
+  let fetchMock: jest.MockedFunction<typeof fetch>;
+
+  beforeEach(() => {
+    client = new KeycloakClient(config);
+    (client as any).discoveryCache = {
+      value: {
+        issuer: config.issuer,
+        authorization_endpoint: config.issuer + '/protocol/openid-connect/auth',
+        token_endpoint: config.issuer + '/protocol/openid-connect/token',
+        jwks_uri: config.issuer + '/protocol/openid-connect/certs',
+      },
+      expiresAt: Date.now() + 60_000,
+    };
+    fetchMock = jest.fn();
+    global.fetch = fetchMock;
+  });
+
+  it('requests and normalizes the complete permission snapshot', async () => {
+    fetchMock.mockResolvedValueOnce(
+      response([
+        { rsid: 'one', rsname: 'persons', scopes: ['read'] },
+        {
+          rsid: 'two',
+          rsname: 'affiliates.documents',
+          scopes: ['write', 'read'],
+        },
+        { rsid: 'three', rsname: 'persons', scopes: ['read'] },
+      ]),
+    );
+    await expect(
+      client.getUmaPermissions({ accessToken: 'secondary-token', target }),
+    ).resolves.toEqual([
+      { resource: 'affiliates.documents', scopes: ['read', 'write'] },
+      { resource: 'persons', scopes: ['read'] },
+    ]);
+    const [, init] = fetchMock.mock.calls[0];
+    expect(Object.fromEntries(init?.body as URLSearchParams)).toEqual({
+      grant_type: 'urn:ietf:params:oauth:grant-type:uma-ticket',
+      audience: 'beneficiary-interface',
+      response_mode: 'permissions',
+    });
+    expect((init?.headers as Record<string, string>).authorization).toBe(
+      'Bearer secondary-token',
+    );
+  });
+
+  it.each([
+    [{ rsid: 'one', rsname: 'persons', scopes: ['read'] }],
+    [{ rsid: 'one', rsname: 'persons', scopes: ['read'], token: 'leak' }],
+    [{ rsid: 'one', rsname: 'persons', scopes: [42] }],
+  ])('rejects a malformed permissions response', async (value) => {
+    fetchMock.mockResolvedValueOnce(response(value));
+    await expect(
+      client.getUmaPermissions({ accessToken: 'secondary-token', target }),
+    ).rejects.toMatchObject({ kind: 'invalid_response' });
+  });
+
+  it('rejects a manipulated access_denied permissions response', async () => {
+    fetchMock.mockResolvedValueOnce(
+      response({ error: 'access_denied', token: 'must-not-be-accepted' }, 403),
+    );
+    await expect(
+      client.getUmaPermissions({ accessToken: 'secondary-token', target }),
+    ).rejects.toMatchObject({ kind: 'invalid_response' });
+  });
+
+  it('maps an explicit access_denied without exposing its description', async () => {
+    fetchMock.mockResolvedValueOnce(
+      response({ error: 'access_denied', error_description: 'sensitive' }, 403),
+    );
+    await expect(
+      client.getUmaPermissions({ accessToken: 'secondary-token', target }),
+    ).rejects.toMatchObject({ kind: 'access_denied' });
   });
 });

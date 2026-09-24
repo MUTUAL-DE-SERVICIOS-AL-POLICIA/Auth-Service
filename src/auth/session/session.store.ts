@@ -53,6 +53,12 @@ redis.call('SET', KEYS[1], cjson.encode(current), 'EX', ttl)
 return 1
 `;
 
+export class SessionWaitTimeoutError extends Error {
+  constructor() {
+    super('Web session update timed out');
+  }
+}
+
 export class SessionError extends Error {
   constructor() {
     super('Web session unavailable or invalid');
@@ -296,7 +302,7 @@ export class SessionStore {
       if (current.revision !== revision) return current;
       await new Promise((resolve) => setTimeout(resolve, 25));
     } while (Date.now() < deadline);
-    throw new SessionError();
+    throw new SessionWaitTimeoutError();
   }
 
   async delete(sid: string): Promise<void> {
@@ -322,7 +328,7 @@ export class SessionStore {
   async deleteByOidcSession(
     keycloakSessionId?: string,
     subject?: string,
-  ): Promise<void> {
+  ): Promise<number> {
     const indexes = keycloakSessionId
       ? [this.indexKey('sid', keycloakSessionId)]
       : subject
@@ -336,5 +342,6 @@ export class SessionStore {
       for (const sid of values) sessionIds.add(sid);
     }
     for (const sid of sessionIds) await this.delete(sid);
+    return sessionIds.size;
   }
 }

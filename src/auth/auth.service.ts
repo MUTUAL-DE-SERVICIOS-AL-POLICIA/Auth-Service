@@ -41,7 +41,7 @@ import {
   WebClientContext,
   Session,
 } from './session/session';
-import { SessionStore } from './session/session.store';
+import { SessionStore, SessionWaitTimeoutError } from './session/session.store';
 import { StoreUnavailableError } from '../common/services/redis.service';
 import { PendingLoginStore } from './state/pending-login.store';
 import { AuthConfig } from './config/auth.config';
@@ -56,9 +56,15 @@ const ABSOLUTE_SESSION_MAX_MS = 8 * 60 * 60 * 1000;
 const TOOL_KEY = /^[a-z][a-z0-9-]{0,63}$/;
 const WEB_AUTHORIZATION_IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 const CLIENT_ENSURE_MAX_ATTEMPTS = 3;
+const CLIENT_REVISION_WAIT_MS = 3_500;
 
 class RetryClientEnsureError extends Error {}
 class PrimarySubjectInvalidGrantError extends Error {}
+
+type CoordinatedClientContextResponse = Omit<
+  EnsureWebClientContextResponse,
+  'permissions' | 'permissionsExpiresAt'
+>;
 
 @Injectable()
 export class AuthService {
@@ -146,6 +152,7 @@ export class AuthService {
       ]);
       if (!access.sub || access.sub !== id.sub)
         throw new AuthPublicError('OIDC_LOGIN_FAILED');
+      const keycloakSessionId = this.oidcSessionId(access, id);
 
       const now = Date.now();
       const tokenExpiresAt = Math.min(
@@ -182,6 +189,7 @@ export class AuthService {
           refreshToken: tokens.refresh_token,
           idToken: tokens.id_token,
           idExpiresAt: tokens.id_token ? id.exp! * 1000 : undefined,
+          ...(keycloakSessionId ? { keycloakSessionId } : {}),
           issuedAt: now,
           accessExpiresAt: tokenExpiresAt,
           refreshExpiresAt: tokens.refresh_expires_in
@@ -280,7 +288,7 @@ export class AuthService {
 
   async ensureWebClientContext(
     input: EnsureWebClientContextRequest,
-  ): Promise<EnsureWebClientContextResponse> {
+  ): Promise<CoordinatedClientContextResponse> {
     const dependencies = this.enabled();
     try {
       if (!input || !OPAQUE_ID.test(input.sid))
@@ -301,6 +309,85 @@ export class AuthService {
         target,
         dependencies,
       );
+    } catch (error) {
+      throw asClientEnsureError(error);
+    }
+  }
+
+  async getWebClientContext(
+    input: EnsureWebClientContextRequest,
+  ): Promise<EnsureWebClientContextResponse> {
+    const dependencies = this.enabled();
+    try {
+      if (
+        !input ||
+        typeof input !== 'object' ||
+        Object.getPrototypeOf(input) !== Object.prototype ||
+        Object.keys(input).length !== 2 ||
+        !Object.prototype.hasOwnProperty.call(input, 'sid') ||
+        !Object.prototype.hasOwnProperty.call(input, 'tool') ||
+        typeof input.sid !== 'string' ||
+        typeof input.tool !== 'string' ||
+        !OPAQUE_ID.test(input.sid) ||
+        !TOOL_KEY.test(input.tool)
+      )
+        throw new AuthPublicError('INVALID_CLIENT_REQUEST');
+
+      let target: Readonly<ClientCatalogEntry>;
+      try {
+        target = dependencies.config.resolveTool(input.tool);
+      } catch (error) {
+        if (error instanceof UnknownWebToolError)
+          throw new AuthPublicError('WEB_TOOL_UNAVAILABLE');
+        throw error;
+      }
+
+      await this.ensureWebClientContext(input);
+      const session = await dependencies.sessions.get(input.sid);
+      const context = session.clients[input.tool];
+      if (
+        !this.contextIsUsable(
+          context,
+          session,
+          input.tool,
+          target,
+          dependencies.config,
+        )
+      )
+        throw new AuthPublicError('AUTH_SERVICE_UNAVAILABLE');
+
+      const permissions = await dependencies.oidc.getUmaPermissions({
+        accessToken: context.tokens.accessToken,
+        target,
+      });
+      return {
+        authenticated: true,
+        currentTool: input.tool,
+        currentClient: target.clientId,
+        identity: session.identity,
+        realmRoles: [...context.realmRoles],
+        clientRoles: [...context.clientRoles],
+        groups: [...context.groups],
+        permissions: permissions.map((permission) => ({
+          resource: permission.resource,
+          scopes: [...permission.scopes],
+        })),
+        contextExpiresAt: Math.min(
+          context.tokens.accessExpiresAt,
+          session.idleExpiresAt,
+          session.absoluteExpiresAt,
+        ),
+        permissionsExpiresAt: Math.min(
+          context.tokens.accessExpiresAt,
+          session.idleExpiresAt,
+          session.absoluteExpiresAt,
+        ),
+        sessionExpiresAt: Math.min(
+          session.idleExpiresAt,
+          session.absoluteExpiresAt,
+        ),
+        sessionAbsoluteExpiresAt: session.absoluteExpiresAt,
+      };
     } catch (error) {
       throw asClientEnsureError(error);
     }
@@ -389,7 +476,7 @@ export class AuthService {
     target: Readonly<ClientCatalogEntry>,
     dependencies: ReturnType<AuthService['enabled']>,
     attempt = 0,
-  ): Promise<EnsureWebClientContextResponse> {
+  ): Promise<CoordinatedClientContextResponse> {
     if (attempt >= CLIENT_ENSURE_MAX_ATTEMPTS)
       throw new AuthPublicError('AUTH_SERVICE_UNAVAILABLE');
 
@@ -397,7 +484,17 @@ export class AuthService {
     await this.ensurePrimaryForClient(sid, observed, dependencies);
     const owner = await dependencies.sessions.acquireClientLock(sid, tool);
     if (!owner) {
-      await dependencies.sessions.waitForRevision(sid, observed.revision);
+      try {
+        await dependencies.sessions.waitForRevision(
+          sid,
+          observed.revision,
+          CLIENT_REVISION_WAIT_MS,
+        );
+      } catch (error) {
+        // An OIDC exchange may legitimately outlive the first lock wait.
+        // Retry acquisition/read without treating contention as an invalid session.
+        if (!(error instanceof SessionWaitTimeoutError)) throw error;
+      }
       return this.ensureClientContext(
         sid,
         tool,
@@ -615,7 +712,7 @@ export class AuthService {
   private clientResponse(
     session: Session,
     context: WebClientContext,
-  ): EnsureWebClientContextResponse {
+  ): CoordinatedClientContextResponse {
     return {
       authenticated: true,
       currentTool: context.tool,
@@ -672,10 +769,25 @@ export class AuthService {
     }
     const owner = await dependencies.sessions.acquireRefreshLock(sid);
     if (!owner) {
-      const winner = await dependencies.sessions.waitForRevision(
-        sid,
-        observed.revision,
-      );
+      let winner: Session;
+      try {
+        winner = await dependencies.sessions.waitForRevision(
+          sid,
+          observed.revision,
+          CLIENT_REVISION_WAIT_MS,
+        );
+      } catch (error) {
+        if (!(error instanceof SessionWaitTimeoutError)) throw error;
+        if (lockAttempt >= 1)
+          throw new AuthPublicError('AUTH_SERVICE_UNAVAILABLE');
+        return this.refreshPrimary(
+          sid,
+          await dependencies.sessions.get(sid),
+          dependencies,
+          lockAttempt + 1,
+          options,
+        );
+      }
       const winnerRenewed =
         winner.primary.accessToken !== observed.primary.accessToken ||
         winner.primary.accessExpiresAt > observed.primary.accessExpiresAt;
@@ -711,14 +823,19 @@ export class AuthService {
       if (!access.sub || access.sub !== current.subject)
         throw new OidcError('invalid_response');
 
-      let refreshedId: { token: string; expiresAt: number } | undefined;
+      let refreshedId:
+        { token: string; expiresAt: number; claims: JWTPayload } | undefined;
       if (tokens.id_token) {
         const id = await dependencies.oidc.validateRefreshedIdToken(
           tokens.id_token,
         );
         if (!id.sub || id.sub !== current.subject)
           throw new OidcError('invalid_response');
-        refreshedId = { token: tokens.id_token, expiresAt: id.exp! * 1000 };
+        refreshedId = {
+          token: tokens.id_token,
+          expiresAt: id.exp! * 1000,
+          claims: id,
+        };
       }
 
       const now = Date.now();
@@ -727,6 +844,18 @@ export class AuthService {
         !!current.primary.idToken &&
         !!current.primary.idExpiresAt &&
         current.primary.idExpiresAt > now;
+      const refreshedSessionId = this.oidcSessionId(
+        access,
+        refreshedId?.claims,
+      );
+      if (
+        current.primary.keycloakSessionId &&
+        refreshedSessionId &&
+        current.primary.keycloakSessionId !== refreshedSessionId
+      )
+        throw new OidcError('invalid_response');
+      const keycloakSessionId =
+        refreshedSessionId ?? current.primary.keycloakSessionId;
       const primary = {
         tokenType: tokens.token_type,
         accessToken: tokens.access_token,
@@ -750,7 +879,7 @@ export class AuthService {
         refreshExpiresAt: tokens.refresh_expires_in
           ? now + tokens.refresh_expires_in * 1000
           : current.primary.refreshExpiresAt,
-        keycloakSessionId: current.primary.keycloakSessionId,
+        ...(keycloakSessionId ? { keycloakSessionId } : {}),
       };
       let base = current;
       for (let attempt = 0; attempt < 3; attempt++) {
@@ -783,6 +912,24 @@ export class AuthService {
         .releaseRefreshLock(sid, owner)
         .catch(() => undefined);
     }
+  }
+
+  private oidcSessionId(
+    ...payloads: Array<JWTPayload | undefined>
+  ): string | undefined {
+    let expected: string | undefined;
+    for (const payload of payloads) {
+      if (!payload || payload.sid === undefined) continue;
+      if (
+        typeof payload.sid !== 'string' ||
+        !payload.sid ||
+        payload.sid.length > 512 ||
+        (expected !== undefined && expected !== payload.sid)
+      )
+        throw new OidcError('invalid_response');
+      expected = payload.sid;
+    }
+    return expected;
   }
 
   private identity(payload: JWTPayload): PresentationIdentity {

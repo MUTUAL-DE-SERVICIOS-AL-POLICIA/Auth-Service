@@ -48,9 +48,7 @@ export class AuthController {
 
   @MessagePattern(WebAuthPatterns.clientEnsure)
   ensureClient(@Payload() request: EnsureWebClientContextRequest) {
-    return this.publicResult(() =>
-      this.webAuth.ensureWebClientContext(request),
-    );
+    return this.publicResult(() => this.webAuth.getWebClientContext(request));
   }
 
   @MessagePattern(WebAuthPatterns.authorizationCheck)

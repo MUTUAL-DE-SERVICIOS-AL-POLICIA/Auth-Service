@@ -6,14 +6,15 @@ import {
   OidcError,
 } from './oidc/keycloak-client';
 import { WebClientContext, Session } from './session/session';
-import { SessionError, SessionStore } from './session/session.store';
+import {
+  SessionError,
+  SessionStore,
+  SessionWaitTimeoutError,
+} from './session/session.store';
 import { PendingLoginStore } from './state/pending-login.store';
 import { AuthConfig } from './config/auth.config';
 import { AuthService } from './auth.service';
-import {
-  parseClientCatalog,
-  resolveTool,
-} from './config/client-catalog';
+import { parseClientCatalog, resolveTool } from './config/client-catalog';
 
 const sid = 's'.repeat(43);
 const catalog = parseClientCatalog(
@@ -348,6 +349,27 @@ describe('AuthService client context coordination', () => {
       .mockResolvedValueOnce(winner)
       .mockResolvedValueOnce(winner);
     await ensure();
+    expect(oidc.exchangeWebClientToken).not.toHaveBeenCalled();
+    expect(sessions.acquireClientLock).toHaveBeenCalledTimes(2);
+  });
+
+  it('retries lock acquisition after a bounded revision wait times out', async () => {
+    const winner = sessionFixture({
+      revision: 5,
+      clients: { beneficiary: contextFixture() },
+    });
+    sessions.acquireClientLock
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce('second-owner');
+    sessions.waitForRevision.mockRejectedValueOnce(
+      new SessionWaitTimeoutError(),
+    );
+    sessions.get
+      .mockResolvedValueOnce(current)
+      .mockResolvedValueOnce(winner)
+      .mockResolvedValueOnce(winner);
+
+    await expect(ensure()).resolves.toMatchObject({ authenticated: true });
     expect(oidc.exchangeWebClientToken).not.toHaveBeenCalled();
     expect(sessions.acquireClientLock).toHaveBeenCalledTimes(2);
   });

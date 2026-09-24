@@ -4,7 +4,7 @@ import { createBrowserBinding, createState } from './crypto';
 import { AuthPublicError } from './errors/auth.errors';
 import { KeycloakClient, OidcError } from './oidc/keycloak-client';
 import { StoreUnavailableError } from '../common/services/redis.service';
-import { SessionStore } from './session/session.store';
+import { SessionStore, SessionWaitTimeoutError } from './session/session.store';
 import { Session } from './session/session';
 import { PendingLoginStore } from './state/pending-login.store';
 import { AuthConfig } from './config/auth.config';
@@ -41,6 +41,7 @@ describe('AuthService', () => {
       | 'validateIdToken'
       | 'refreshPrimaryToken'
       | 'validateRefreshedIdToken'
+      | 'validateBackchannelLogoutToken'
     >
   >;
   let pending: jest.Mocked<Pick<PendingLoginStore, 'create' | 'take'>>;
@@ -54,6 +55,7 @@ describe('AuthService', () => {
       | 'acquireRefreshLock'
       | 'releaseRefreshLock'
       | 'waitForRevision'
+      | 'deleteByOidcSession'
     >
   >;
   let service: AuthService;
@@ -73,10 +75,12 @@ describe('AuthService', () => {
       validateAccessToken: jest.fn().mockResolvedValue({
         sub: 'person-1',
         exp: nowSeconds + 300,
+        sid: 'keycloak-session-1',
       } as JWTPayload),
       validateIdToken: jest.fn().mockResolvedValue({
         sub: 'person-1',
         exp: nowSeconds + 300,
+        sid: 'keycloak-session-1',
         preferred_username: 'person',
         name: 'Test Person',
         given_name: 'Test',
@@ -95,8 +99,13 @@ describe('AuthService', () => {
       validateRefreshedIdToken: jest.fn().mockResolvedValue({
         sub: 'person-1',
         exp: nowSeconds + 300,
+        sid: 'keycloak-session-1',
         name: 'Test Person',
       } as JWTPayload),
+      validateBackchannelLogoutToken: jest.fn().mockResolvedValue({
+        sid: 'keycloak-session-1',
+        sub: 'person-1',
+      }),
     };
     pending = {
       create: jest.fn().mockResolvedValue(undefined),
@@ -118,6 +127,7 @@ describe('AuthService', () => {
       acquireRefreshLock: jest.fn().mockResolvedValue('lock-owner'),
       releaseRefreshLock: jest.fn().mockResolvedValue(undefined),
       waitForRevision: jest.fn(),
+      deleteByOidcSession: jest.fn().mockResolvedValue(1),
     };
     service = new AuthService(
       config,
@@ -220,6 +230,7 @@ describe('AuthService', () => {
           accessToken: 'access-token',
           refreshToken: 'refresh-token',
           idToken: 'id-token',
+          keycloakSessionId: 'keycloak-session-1',
         }),
       }),
     );
@@ -238,6 +249,19 @@ describe('AuthService', () => {
     expect(stored.primary.accessExpiresAt).toBeLessThan(
       stored.absoluteExpiresAt,
     );
+  });
+
+  it('rejects login when verified access and ID tokens identify different OIDC sessions', async () => {
+    oidc.validateIdToken.mockResolvedValueOnce({
+      sub: 'person-1',
+      exp: nowSeconds + 300,
+      sid: 'different-keycloak-session',
+    } as JWTPayload);
+
+    await expect(
+      service.exchange({ code: 'code', state, browserBinding: binding }),
+    ).rejects.toMatchObject({ code: 'OIDC_LOGIN_FAILED' });
+    expect(sessions.create).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -262,6 +286,19 @@ describe('AuthService', () => {
     await expect(
       service.exchange({ code: 'code', state, browserBinding: binding }),
     ).rejects.toMatchObject({ code: 'LOGIN_STATE_INVALID' });
+  });
+
+  it('deletes the WebSession selected by a verified backchannel logout token', async () => {
+    await expect(
+      service.backchannelLogout('signed-logout-token'),
+    ).resolves.toBeUndefined();
+    expect(oidc.validateBackchannelLogoutToken).toHaveBeenCalledWith(
+      'signed-logout-token',
+    );
+    expect(sessions.deleteByOidcSession).toHaveBeenCalledWith(
+      'keycloak-session-1',
+      'person-1',
+    );
   });
 
   it('checks a valid session without returning tokens', async () => {
@@ -338,6 +375,7 @@ describe('AuthService', () => {
         primary: expect.objectContaining({
           accessToken: 'refreshed-access-token',
           refreshToken: 'refreshed-refresh-token',
+          keycloakSessionId: 'keycloak-session-1',
         }),
       }),
     );
@@ -346,6 +384,22 @@ describe('AuthService', () => {
     expect(refreshed.primary.idExpiresAt).toEqual(expect.any(Number));
     expect(refreshed.primary.idExpiresAt).toBeGreaterThan(Date.now());
     expect(JSON.stringify(result)).not.toContain('refreshed-access-token');
+  });
+
+  it('rejects refresh when the verified token changes the OIDC session identifier', async () => {
+    const current = sessionFixture({
+      primary: {
+        ...sessionFixture().primary,
+        keycloakSessionId: 'original-keycloak-session',
+        accessExpiresAt: Date.now() + 60_000,
+      },
+    });
+    sessions.get.mockResolvedValue(current);
+
+    await expect(service.check({ sid })).rejects.toMatchObject({
+      code: 'AUTH_SERVICE_UNAVAILABLE',
+    });
+    expect(sessions.replace).not.toHaveBeenCalled();
   });
 
   it('keeps valid optional refresh and ID tokens when Keycloak omits replacements', async () => {
@@ -413,8 +467,33 @@ describe('AuthService', () => {
     await expect(service.check({ sid })).resolves.toMatchObject({
       authenticated: true,
     });
-    expect(sessions.waitForRevision).toHaveBeenCalledWith(sid, 1);
+    expect(sessions.waitForRevision).toHaveBeenCalledWith(sid, 1, 3500);
     expect(oidc.refreshPrimaryToken).not.toHaveBeenCalled();
+  });
+
+  it('retries refresh lock acquisition after a bounded wait times out', async () => {
+    const current = sessionFixture({
+      primary: {
+        ...sessionFixture().primary,
+        accessExpiresAt: Date.now() + 60_000,
+      },
+    });
+    sessions.get
+      .mockResolvedValueOnce(current)
+      .mockResolvedValueOnce(current)
+      .mockResolvedValueOnce(current);
+    sessions.acquireRefreshLock
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce('second-owner');
+    sessions.waitForRevision.mockRejectedValueOnce(
+      new SessionWaitTimeoutError(),
+    );
+
+    await expect(service.check({ sid })).resolves.toMatchObject({
+      authenticated: true,
+    });
+    expect(oidc.refreshPrimaryToken).toHaveBeenCalledTimes(1);
+    expect(sessions.acquireRefreshLock).toHaveBeenCalledTimes(2);
   });
 
   it('never accepts an expired unchanged winner and retries refresh once', async () => {

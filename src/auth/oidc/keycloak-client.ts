@@ -53,6 +53,15 @@ export interface ExchangedWebClientToken {
   claims: ExchangedWebClientClaims;
 }
 
+export interface UmaPermissionsRequest {
+  accessToken: string;
+  target: Readonly<ClientCatalogEntry>;
+}
+export interface UmaPermission {
+  resource: string;
+  scopes: readonly string[];
+}
+
 export interface UmaDecisionRequest {
   accessToken: string;
   target: Readonly<ClientCatalogEntry>;
@@ -613,6 +622,110 @@ export class KeycloakClient {
       if (Object.keys(decision).length !== 1 || typeof result !== 'boolean')
         throw new OidcError('invalid_response');
       return result === true;
+    } catch (error) {
+      if (controller.signal.aborted) throw new OidcError('unavailable');
+      if (error instanceof OidcError) throw error;
+      throw new OidcError('unavailable');
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  async getUmaPermissions(
+    input: UmaPermissionsRequest,
+  ): Promise<readonly UmaPermission[]> {
+    if (
+      !input.accessToken ||
+      !Object.values(this.config.clientCatalog).includes(input.target)
+    )
+      throw new OidcError('invalid_configuration');
+
+    const metadata = await this.discovery();
+    const body = new URLSearchParams({
+      grant_type: UMA_TICKET_GRANT,
+      audience: input.target.resourceServer,
+      response_mode: 'permissions',
+    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3000);
+    try {
+      const response = await fetch(this.networkUrl(metadata.token_endpoint), {
+        method: 'POST',
+        headers: {
+          authorization: 'Bearer ' + input.accessToken,
+          'content-type': 'application/x-www-form-urlencoded',
+        },
+        body,
+        signal: controller.signal,
+        redirect: 'error',
+      });
+      const value = await this.boundedJson(response);
+      if (response.status === 401 || response.status === 403) {
+        if (!value || Array.isArray(value) || typeof value !== 'object')
+          throw new OidcError('invalid_response');
+        const error = value as Record<string, unknown>;
+        const allowedKeys = new Set([
+          'error',
+          'error_description',
+          'error_uri',
+        ]);
+        const optionalValueIsValid = (key: string) =>
+          error[key] === undefined ||
+          (typeof error[key] === 'string' &&
+            error[key].length > 0 &&
+            error[key].length <= OAUTH_ERROR_VALUE_MAX_LENGTH);
+        if (
+          Object.keys(error).every((key) => allowedKeys.has(key)) &&
+          error.error === 'access_denied' &&
+          optionalValueIsValid('error_description') &&
+          optionalValueIsValid('error_uri')
+        )
+          throw new OidcError('access_denied');
+        throw new OidcError('invalid_response');
+      }
+      if (!response.ok)
+        throw new OidcError(
+          response.status >= 500 ? 'unavailable' : 'invalid_response',
+        );
+      if (!Array.isArray(value)) throw new OidcError('invalid_response');
+
+      const normalized = new Map<string, Set<string>>();
+      for (const candidate of value) {
+        if (
+          !candidate ||
+          Array.isArray(candidate) ||
+          typeof candidate !== 'object'
+        )
+          throw new OidcError('invalid_response');
+        const permission = candidate as Record<string, unknown>;
+        if (
+          Object.keys(permission).some(
+            (key) => !['rsid', 'rsname', 'scopes'].includes(key),
+          ) ||
+          typeof permission.rsid !== 'string' ||
+          !permission.rsid ||
+          typeof permission.rsname !== 'string' ||
+          !UMA_NAME.test(permission.rsname) ||
+          !Array.isArray(permission.scopes) ||
+          permission.scopes.some(
+            (scope) => typeof scope !== 'string' || !UMA_NAME.test(scope),
+          )
+        )
+          throw new OidcError('invalid_response');
+        const scopes = normalized.get(permission.rsname) ?? new Set<string>();
+        for (const scope of permission.scopes as string[]) scopes.add(scope);
+        normalized.set(permission.rsname, scopes);
+      }
+      return Object.freeze(
+        [...normalized.entries()]
+          .sort(([left], [right]) => left.localeCompare(right))
+          .map(([resource, scopes]) =>
+            Object.freeze({
+              resource,
+              scopes: Object.freeze([...scopes].sort()),
+            }),
+          ),
+      );
     } catch (error) {
       if (controller.signal.aborted) throw new OidcError('unavailable');
       if (error instanceof OidcError) throw error;

@@ -2,7 +2,7 @@
 import { RedisService } from '../../common/services/redis.service';
 import { AuthConfig } from '../config/auth.config';
 import { assertSameIdentity, Session } from './session';
-import { SessionStore } from './session.store';
+import { SessionStore, SessionWaitTimeoutError } from './session.store';
 
 const config = {
   environment: 'test',
@@ -226,7 +226,7 @@ describe('SessionStore', () => {
     const session = fixture();
     const sid = await store.create(session);
     await expect(store.waitForRevision(sid, 1, 1)).rejects.toBeInstanceOf(
-      Error,
+      SessionWaitTimeoutError,
     );
   });
 
@@ -253,6 +253,36 @@ describe('SessionStore', () => {
     expect(entries.has(`web:test:session:${sid}:client:test-tool:lock`)).toBe(
       true,
     );
+  });
+
+  it('indexes and deletes the exact WebSession selected by an OIDC sid', async () => {
+    const base = fixture();
+    const session: Session = {
+      ...base,
+      primary: {
+        ...base.primary,
+        keycloakSessionId: 'keycloak-session-1',
+      },
+    };
+    const sid = await store.create(session);
+    expect(client.sadd).toHaveBeenCalledTimes(2);
+    client.smembers.mockResolvedValueOnce([sid]);
+
+    await expect(
+      store.deleteByOidcSession('keycloak-session-1', session.subject),
+    ).resolves.toBe(1);
+    expect(client.smembers).toHaveBeenCalledTimes(1);
+    expect(entries.has(`web:test:session:${sid}`)).toBe(false);
+    expect(client.srem).toHaveBeenCalledTimes(2);
+  });
+
+  it('uses the subject index only when the logout token has no OIDC sid', async () => {
+    client.smembers.mockResolvedValueOnce([]);
+
+    await expect(
+      store.deleteByOidcSession(undefined, 'person-1'),
+    ).resolves.toBe(0);
+    expect(client.smembers).toHaveBeenCalledTimes(1);
   });
 
   it('atomically writes a client context, activity, revision and idle TTL', async () => {

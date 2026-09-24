@@ -93,8 +93,15 @@ export interface EnsureWebClientContextResponse {
   clientRoles: string[];
   groups: string[];
   contextExpiresAt: number;
+  permissions: WebClientPermission[];
+  permissionsExpiresAt: number;
   sessionExpiresAt: number;
   sessionAbsoluteExpiresAt: number;
+}
+
+export interface WebClientPermission {
+  resource: string;
+  scopes: string[];
 }
 
 export interface CheckWebAuthorizationRequest {
