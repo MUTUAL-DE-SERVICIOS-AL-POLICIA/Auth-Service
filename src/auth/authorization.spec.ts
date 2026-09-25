@@ -93,7 +93,7 @@ describe('AuthService authorization coordination', () => {
   let oidc: jest.Mocked<
     Pick<KeycloakClient, 'evaluateUmaDecision' | 'exchangeWebClientToken'>
   >;
-  let sessions: jest.Mocked<Pick<SessionStore, 'get'>>;
+  let sessions: jest.Mocked<Pick<SessionStore, 'get' | 'replace'>>;
   let service: AuthService;
 
   beforeEach(() => {
@@ -102,7 +102,14 @@ describe('AuthService authorization coordination', () => {
       evaluateUmaDecision: jest.fn().mockResolvedValue(true),
       exchangeWebClientToken: jest.fn(),
     };
-    sessions = { get: jest.fn().mockImplementation(async () => current) };
+    sessions = {
+      get: jest.fn().mockImplementation(async () => current),
+      replace: jest.fn().mockImplementation(async (_sid, revision, next) => {
+        if (revision !== current.revision) return false;
+        current = next;
+        return true;
+      }),
+    };
     service = new AuthService(
       config,
       oidc as unknown as KeycloakClient,
@@ -174,9 +181,33 @@ describe('AuthService authorization coordination', () => {
     expect(oidc.exchangeWebClientToken).not.toHaveBeenCalled();
   });
 
-  it('returns a denied decision without actor', async () => {
-    oidc.evaluateUmaDecision.mockResolvedValueOnce(false);
+  it('returns a denied functional decision without actor after tool admission', async () => {
+    oidc.evaluateUmaDecision
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(false);
     await expect(authorize()).resolves.toEqual({ authorized: false });
+  });
+
+  it('denies tool admission before context reuse or token exchange', async () => {
+    oidc.evaluateUmaDecision.mockResolvedValueOnce(false);
+    await expect(authorize()).rejects.toMatchObject({
+      code: 'WEB_CLIENT_ACCESS_DENIED',
+    });
+    expect(oidc.evaluateUmaDecision).toHaveBeenCalledTimes(1);
+    expect(oidc.evaluateUmaDecision).toHaveBeenCalledWith({
+      accessToken: 'primary-token',
+      target: hubTarget,
+      resource: 'beneficiary-interface',
+      scope: 'launch',
+    });
+    expect(service.ensureWebClientContext).not.toHaveBeenCalled();
+    expect(oidc.exchangeWebClientToken).not.toHaveBeenCalled();
+    expect(sessions.replace).toHaveBeenCalledWith(
+      sid,
+      4,
+      expect.objectContaining({ revision: 5, clients: {} }),
+    );
+    expect(current.clients.beneficiary).toBeUndefined();
   });
 
   it('does not invent optional actor fields', async () => {
@@ -244,7 +275,7 @@ describe('AuthService authorization coordination', () => {
       sid,
       tool: 'beneficiary',
     });
-    expect(oidc.evaluateUmaDecision).toHaveBeenCalledTimes(1);
+    expect(oidc.evaluateUmaDecision).toHaveBeenCalledTimes(2);
   });
 
   it('uses the re-exchanged context and never authorizes with an expired token', async () => {
@@ -295,7 +326,7 @@ describe('AuthService authorization coordination', () => {
     expect(current.clients.beneficiary.tokens.accessToken).toBe(
       'renewed-secondary-token',
     );
-    expect(oidc.evaluateUmaDecision).toHaveBeenCalledTimes(1);
+    expect(oidc.evaluateUmaDecision).toHaveBeenCalledTimes(2);
     expect(oidc.evaluateUmaDecision).toHaveBeenCalledWith(
       expect.objectContaining({ accessToken: 'renewed-secondary-token' }),
     );

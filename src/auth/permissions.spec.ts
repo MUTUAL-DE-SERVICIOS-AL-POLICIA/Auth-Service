@@ -78,11 +78,15 @@ it('returns only normalized permissions with session-bounded expirations', async
     },
   } as Session;
   const oidc = {
+    evaluateUmaDecision: jest.fn().mockResolvedValue(true),
     getUmaPermissions: jest
       .fn()
       .mockResolvedValue([{ resource: 'persons', scopes: ['read'] }]),
   };
-  const sessions = { get: jest.fn().mockResolvedValue(session) };
+  const sessions = {
+    get: jest.fn().mockResolvedValue(session),
+    replace: jest.fn().mockResolvedValue(true),
+  };
   const service = new AuthService(
     config,
     oidc as unknown as KeycloakClient,
@@ -118,10 +122,25 @@ it('returns only normalized permissions with session-bounded expirations', async
     sessionExpiresAt: session.idleExpiresAt,
     sessionAbsoluteExpiresAt: session.absoluteExpiresAt,
   });
+  expect(oidc.evaluateUmaDecision).toHaveBeenCalledWith({
+    accessToken: 'primary',
+    target: hubTarget,
+    resource: 'beneficiary-interface',
+    scope: 'launch',
+  });
   expect(oidc.getUmaPermissions).toHaveBeenCalledWith({
     accessToken: 'secondary',
     target: resolveTool(catalog, 'beneficiary'),
   });
+
+  oidc.evaluateUmaDecision.mockResolvedValueOnce(false);
+  (service.ensureWebClientContext as jest.Mock).mockClear();
+  oidc.getUmaPermissions.mockClear();
+  await expect(
+    service.getWebClientContext({ sid, tool: 'beneficiary' }),
+  ).rejects.toMatchObject({ code: 'WEB_CLIENT_ACCESS_DENIED' });
+  expect(service.ensureWebClientContext).not.toHaveBeenCalled();
+  expect(oidc.getUmaPermissions).not.toHaveBeenCalled();
 });
 
 it('returns Hub permissions from the primary context without token exchange', async () => {

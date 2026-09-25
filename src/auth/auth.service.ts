@@ -349,6 +349,12 @@ export class AuthService {
         throw error;
       }
 
+      await this.assertToolLaunchAccess(
+        input.sid,
+        input.tool,
+        target,
+        dependencies,
+      );
       const coordinated = await this.ensureWebClientContext(input);
       const session = await dependencies.sessions.get(input.sid);
       let accessToken: string;
@@ -435,6 +441,12 @@ export class AuthService {
         throw new AuthPublicError('INVALID_AUTHORIZATION_REQUEST');
       }
 
+      await this.assertToolLaunchAccess(
+        input.sid,
+        input.tool,
+        target,
+        dependencies,
+      );
       await this.ensureWebClientContext({
         sid: input.sid,
         tool: input.tool,
@@ -485,6 +497,58 @@ export class AuthService {
     } catch (error) {
       throw asAuthorizationError(error);
     }
+  }
+
+  private async assertToolLaunchAccess(
+    sid: string,
+    tool: string,
+    target: Readonly<ClientCatalogEntry>,
+    dependencies: ReturnType<AuthService['enabled']>,
+  ): Promise<void> {
+    if (tool === dependencies.config.hubToolKey) return;
+
+    const observed = await dependencies.sessions.get(sid);
+    const session = await this.ensurePrimaryForClient(
+      sid,
+      observed,
+      dependencies,
+    );
+    if (!this.primaryIsUsable(session, dependencies.config))
+      throw new AuthPublicError('AUTH_SERVICE_UNAVAILABLE');
+
+    const allowed = await dependencies.oidc.evaluateUmaDecision({
+      accessToken: session.primary.accessToken,
+      target: dependencies.config.hubTarget,
+      resource: target.clientId,
+      scope: 'launch',
+    });
+    if (!allowed) {
+      await this.discardClientContext(sid, tool, session, dependencies);
+      throw new AuthPublicError('WEB_CLIENT_ACCESS_DENIED');
+    }
+  }
+
+  private async discardClientContext(
+    sid: string,
+    tool: string,
+    observed: Session,
+    dependencies: ReturnType<AuthService['enabled']>,
+  ): Promise<void> {
+    let current = observed;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (!current.clients[tool]) return;
+      const clients = { ...current.clients };
+      delete clients[tool];
+      const next: Session = {
+        ...current,
+        revision: current.revision + 1,
+        clients,
+      };
+      if (await dependencies.sessions.replace(sid, current.revision, next))
+        return;
+      current = await dependencies.sessions.get(sid);
+    }
+    throw new AuthPublicError('AUTH_SERVICE_UNAVAILABLE');
   }
 
   private async ensureClientContext(
