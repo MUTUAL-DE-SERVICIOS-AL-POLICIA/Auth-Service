@@ -287,12 +287,12 @@ describe('KeycloakClient UMA permissions', () => {
     ).rejects.toMatchObject({ kind: 'invalid_response' });
   });
 
-  it('maps an explicit access_denied without exposing its description', async () => {
+  it('normalizes an explicit access_denied to an empty permission snapshot', async () => {
     fetchMock.mockResolvedValueOnce(
       response({ error: 'access_denied', error_description: 'sensitive' }, 403),
     );
     await expect(
       client.getUmaPermissions({ accessToken: 'secondary-token', target }),
-    ).rejects.toMatchObject({ kind: 'access_denied' });
+    ).resolves.toEqual([]);
   });
 });

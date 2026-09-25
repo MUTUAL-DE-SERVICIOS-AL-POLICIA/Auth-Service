@@ -691,7 +691,7 @@ export class KeycloakClient {
           optionalValueIsValid('error_description') &&
           optionalValueIsValid('error_uri')
         )
-          throw new OidcError('access_denied');
+          return Object.freeze([]);
         throw new OidcError('invalid_response');
       }
       if (!response.ok)
