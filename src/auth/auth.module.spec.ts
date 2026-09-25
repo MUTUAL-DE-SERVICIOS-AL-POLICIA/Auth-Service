@@ -14,6 +14,7 @@ const enabled = {
   OIDC_ISSUER: 'http://localhost:8080/realms/muserpol',
   OIDC_HUB_CALLBACK_URL: 'http://localhost:3001/callback',
   OIDC_HUB_POST_LOGOUT_REDIRECT_URL: 'http://localhost:3001/',
+  OIDC_HUB_TOOL_KEY: 'hub',
   OIDC_HUB_CLIENT_ID: 'hub',
   OIDC_HUB_CLIENT_TYPE: 'public',
   WEB_REDIS_HOST: '127.0.0.1',

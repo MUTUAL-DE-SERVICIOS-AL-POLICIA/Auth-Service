@@ -7,6 +7,7 @@ const valid = {
   OIDC_ISSUER: 'http://localhost:8080/realms/muserpol',
   OIDC_HUB_CALLBACK_URL: 'http://localhost:3001/callback',
   OIDC_HUB_POST_LOGOUT_REDIRECT_URL: 'http://localhost:3001/',
+  OIDC_HUB_TOOL_KEY: 'hub',
   OIDC_HUB_CLIENT_ID: 'hub',
   OIDC_HUB_CLIENT_TYPE: 'public',
   WEB_REDIS_HOST: 'redis',
@@ -31,8 +32,6 @@ describe('web auth configuration', () => {
       WEB_CLIENT_CATALOG: JSON.stringify({
         beneficiary: {
           clientId: 'beneficiary-interface',
-          audience: 'beneficiary-interface',
-          resourceServer: 'beneficiary-interface',
         },
       }),
     });
@@ -41,6 +40,11 @@ describe('web auth configuration', () => {
       clientId: 'beneficiary-interface',
       audience: 'beneficiary-interface',
       resourceServer: 'beneficiary-interface',
+    });
+    expect(config?.resolveTool('hub')).toEqual({
+      clientId: 'hub-interface',
+      audience: 'hub-interface',
+      resourceServer: 'hub-interface',
     });
     expect(() => config?.resolveTool('hub-interface')).toThrow(
       'Web tool is not configured',

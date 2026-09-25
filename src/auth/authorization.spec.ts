@@ -6,32 +6,37 @@ import { PendingLoginStore } from './state/pending-login.store';
 import { AuthConfig } from './config/auth.config';
 import { AuthService } from './auth.service';
 import { AuthPublicError } from './errors/auth.errors';
-import {
-  parseClientCatalog,
-  resolveTool,
-} from './config/client-catalog';
+import { parseClientCatalog, resolveTool } from './config/client-catalog';
 
 const sid = 's'.repeat(43);
 const catalog = parseClientCatalog(
   JSON.stringify({
     beneficiary: {
       clientId: 'beneficiary-interface',
-      audience: 'beneficiary-interface',
-      resourceServer: 'beneficiary-interface',
     },
   }),
   'hub-interface',
 );
+const hubTarget = Object.freeze({
+  clientId: 'hub-interface',
+  audience: 'hub-interface',
+  resourceServer: 'hub-interface',
+});
 const config = {
   enabled: true,
   environment: 'test',
   issuer: 'https://id.test/realms/muserpol',
+  hubToolKey: 'hub',
   hubClientId: 'hub-interface',
   sessionTtlSeconds: 28_800,
   sessionIdleTtlSeconds: 7_200,
   refreshSkewSeconds: 120,
   clientCatalog: catalog,
-  resolveTool: (tool: string) => resolveTool(catalog, tool),
+  hubTarget,
+  resolveTool: (tool: string) =>
+    tool === 'hub' ? hubTarget : resolveTool(catalog, tool),
+  isKnownTarget: (target: unknown) =>
+    target === hubTarget || Object.values(catalog).includes(target as never),
 } as AuthConfig;
 
 function context(accessExpiresAt = Date.now() + 300_000): WebClientContext {
@@ -86,11 +91,7 @@ function session(client = context()): Session {
 describe('AuthService authorization coordination', () => {
   let current: Session;
   let oidc: jest.Mocked<
-    Pick<
-      KeycloakClient,
-      | 'evaluateUmaDecision'
-      | 'exchangeWebClientToken'
-    >
+    Pick<KeycloakClient, 'evaluateUmaDecision' | 'exchangeWebClientToken'>
   >;
   let sessions: jest.Mocked<Pick<SessionStore, 'get'>>;
   let service: AuthService;
@@ -146,6 +147,31 @@ describe('AuthService authorization coordination', () => {
       resource: 'persons',
       scope: 'read',
     });
+  });
+
+  it('evaluates Hub authorization with the primary token', async () => {
+    await expect(
+      service.checkAuthorization({
+        sid,
+        tool: 'hub',
+        resource: 'beneficiary-interface',
+        scope: 'launch',
+      }),
+    ).resolves.toEqual({
+      authorized: true,
+      actor: {
+        sub: 'person-1',
+        preferredUsername: 'operator',
+        name: 'Test Operator',
+      },
+    });
+    expect(oidc.evaluateUmaDecision).toHaveBeenCalledWith({
+      accessToken: 'primary-token',
+      target: hubTarget,
+      resource: 'beneficiary-interface',
+      scope: 'launch',
+    });
+    expect(oidc.exchangeWebClientToken).not.toHaveBeenCalled();
   });
 
   it('returns a denied decision without actor', async () => {

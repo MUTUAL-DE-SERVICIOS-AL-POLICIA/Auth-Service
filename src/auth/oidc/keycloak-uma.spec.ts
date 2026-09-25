@@ -7,8 +7,6 @@ const catalog = parseClientCatalog(
   JSON.stringify({
     beneficiary: {
       clientId: 'beneficiary-interface',
-      audience: 'beneficiary-interface',
-      resourceServer: 'beneficiary-interface',
     },
   }),
   'hub-interface',
@@ -16,6 +14,8 @@ const catalog = parseClientCatalog(
 const config = {
   issuer: 'https://id.test/realms/muserpol',
   clientCatalog: catalog,
+  isKnownTarget: (candidate: unknown) =>
+    Object.values(catalog).includes(candidate as never),
 } as AuthConfig;
 const target = resolveTool(catalog, 'beneficiary');
 

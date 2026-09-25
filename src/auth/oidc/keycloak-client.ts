@@ -463,6 +463,20 @@ export class KeycloakClient {
     return url.toString();
   }
 
+  async validateToolAccessToken(
+    accessToken: string,
+    expectedSubject: string,
+    target: Readonly<ClientCatalogEntry>,
+  ): Promise<ExchangedWebClientClaims> {
+    if (!accessToken || !expectedSubject || !this.config.isKnownTarget(target))
+      throw new OidcError('invalid_configuration');
+    return this.exchangedClaims(
+      await this.verify(accessToken, 'invalid_token'),
+      target,
+      expectedSubject,
+    );
+  }
+
   async exchangeWebClientToken(
     input: ExchangeWebClientTokenRequest,
   ): Promise<ExchangedWebClientToken> {
@@ -471,7 +485,7 @@ export class KeycloakClient {
       !this.config.hubClientSecret ||
       !input.subjectToken ||
       !input.expectedSubject ||
-      !Object.values(this.config.clientCatalog).includes(input.target)
+      !this.config.isExchangeTarget(input.target)
     ) {
       throw new OidcError('invalid_configuration');
     }
@@ -560,7 +574,7 @@ export class KeycloakClient {
   async evaluateUmaDecision(input: UmaDecisionRequest): Promise<boolean> {
     if (
       !input.accessToken ||
-      !Object.values(this.config.clientCatalog).includes(input.target) ||
+      !this.config.isKnownTarget(input.target) ||
       !UMA_NAME.test(input.resource) ||
       !UMA_NAME.test(input.scope)
     ) {
@@ -634,10 +648,7 @@ export class KeycloakClient {
   async getUmaPermissions(
     input: UmaPermissionsRequest,
   ): Promise<readonly UmaPermission[]> {
-    if (
-      !input.accessToken ||
-      !Object.values(this.config.clientCatalog).includes(input.target)
-    )
+    if (!input.accessToken || !this.config.isKnownTarget(input.target))
       throw new OidcError('invalid_configuration');
 
     const metadata = await this.discovery();

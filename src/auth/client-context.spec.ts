@@ -21,27 +21,33 @@ const catalog = parseClientCatalog(
   JSON.stringify({
     beneficiary: {
       clientId: 'beneficiary-interface',
-      audience: 'beneficiary-interface',
-      resourceServer: 'beneficiary-interface',
     },
     'test-tool': {
       clientId: 'test-interface',
-      audience: 'test-interface',
-      resourceServer: 'test-interface',
     },
   }),
   'hub-interface',
 );
+const hubTarget = Object.freeze({
+  clientId: 'hub-interface',
+  audience: 'hub-interface',
+  resourceServer: 'hub-interface',
+});
 const config = {
   enabled: true,
   environment: 'test',
   issuer: 'https://id.test/realms/muserpol',
+  hubToolKey: 'hub',
   hubClientId: 'hub-interface',
   sessionTtlSeconds: 28_800,
   sessionIdleTtlSeconds: 7_200,
   refreshSkewSeconds: 120,
   clientCatalog: catalog,
-  resolveTool: (tool: string) => resolveTool(catalog, tool),
+  hubTarget,
+  resolveTool: (tool: string) =>
+    tool === 'hub' ? hubTarget : resolveTool(catalog, tool),
+  isKnownTarget: (target: unknown) =>
+    target === hubTarget || Object.values(catalog).includes(target as never),
 } as AuthConfig;
 
 function sessionFixture(overrides: Partial<Session> = {}): Session {

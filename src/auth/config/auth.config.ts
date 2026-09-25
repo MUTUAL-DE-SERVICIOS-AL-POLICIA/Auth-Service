@@ -10,6 +10,7 @@ export interface AuthConfig {
   environment: string;
   issuer: string;
   internalBaseUrl?: string;
+  hubToolKey: string;
   hubClientId: string;
   hubClientType: 'public' | 'confidential';
   hubClientSecret?: string;
@@ -24,7 +25,10 @@ export interface AuthConfig {
   sessionIdleTtlSeconds: number;
   refreshSkewSeconds: number;
   clientCatalog: ClientCatalog;
+  hubTarget: Readonly<ClientCatalogEntry>;
   resolveTool(toolKey: string): Readonly<ClientCatalogEntry>;
+  isKnownTarget(target: Readonly<ClientCatalogEntry>): boolean;
+  isExchangeTarget(target: Readonly<ClientCatalogEntry>): boolean;
 }
 
 function absoluteUrl(value: string | undefined, name: string): string {
@@ -115,8 +119,18 @@ export function readAuthConfig(
       'OIDC_ISSUER and OIDC_HUB_CALLBACK_URL must use HTTPS in production',
     );
   }
+  const hubToolKey = required(env.OIDC_HUB_TOOL_KEY, 'OIDC_HUB_TOOL_KEY');
+  if (!/^[a-z][a-z0-9-]{0,63}$/.test(hubToolKey))
+    throw new Error('OIDC_HUB_TOOL_KEY is invalid');
   const hubClientId = required(env.OIDC_HUB_CLIENT_ID, 'OIDC_HUB_CLIENT_ID');
   const clientCatalog = parseClientCatalog(env.WEB_CLIENT_CATALOG, hubClientId);
+  if (Object.prototype.hasOwnProperty.call(clientCatalog, hubToolKey))
+    throw new Error('OIDC_HUB_TOOL_KEY collides with WEB_CLIENT_CATALOG');
+  const hubTarget = Object.freeze({
+    clientId: hubClientId,
+    audience: hubClientId,
+    resourceServer: hubClientId,
+  });
   const sessionTtlSeconds = positiveInteger(
     env.WEB_SESSION_TTL_SECONDS,
     'WEB_SESSION_TTL_SECONDS',
@@ -137,6 +151,7 @@ export function readAuthConfig(
     environment,
     issuer,
     internalBaseUrl,
+    hubToolKey,
     hubClientId,
     hubClientType,
     hubClientSecret:
@@ -160,6 +175,12 @@ export function readAuthConfig(
       120,
     ),
     clientCatalog,
-    resolveTool: (toolKey: string) => resolveTool(clientCatalog, toolKey),
+    hubTarget,
+    resolveTool: (toolKey: string) =>
+      toolKey === hubToolKey ? hubTarget : resolveTool(clientCatalog, toolKey),
+    isKnownTarget: (target: Readonly<ClientCatalogEntry>) =>
+      target === hubTarget || Object.values(clientCatalog).includes(target),
+    isExchangeTarget: (target: Readonly<ClientCatalogEntry>) =>
+      Object.values(clientCatalog).includes(target),
   };
 }

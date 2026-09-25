@@ -303,6 +303,13 @@ export class AuthService {
           throw new AuthPublicError('WEB_TOOL_UNAVAILABLE');
         throw error;
       }
+      if (input.tool === dependencies.config.hubToolKey)
+        return await this.ensurePrimaryToolContext(
+          input.sid,
+          input.tool,
+          target,
+          dependencies,
+        );
       return await this.ensureClientContext(
         input.sid,
         input.tool,
@@ -342,46 +349,49 @@ export class AuthService {
         throw error;
       }
 
-      await this.ensureWebClientContext(input);
+      const coordinated = await this.ensureWebClientContext(input);
       const session = await dependencies.sessions.get(input.sid);
-      const context = session.clients[input.tool];
-      if (
-        !this.contextIsUsable(
-          context,
-          session,
-          input.tool,
-          target,
-          dependencies.config,
+      let accessToken: string;
+      let accessExpiresAt: number;
+      if (input.tool === dependencies.config.hubToolKey) {
+        if (!this.primaryIsUsable(session, dependencies.config))
+          throw new AuthPublicError('AUTH_SERVICE_UNAVAILABLE');
+        accessToken = session.primary.accessToken;
+        accessExpiresAt = session.primary.accessExpiresAt;
+      } else {
+        const context = session.clients[input.tool];
+        if (
+          !this.contextIsUsable(
+            context,
+            session,
+            input.tool,
+            target,
+            dependencies.config,
+          )
         )
-      )
-        throw new AuthPublicError('AUTH_SERVICE_UNAVAILABLE');
+          throw new AuthPublicError('AUTH_SERVICE_UNAVAILABLE');
+        accessToken = context.tokens.accessToken;
+        accessExpiresAt = context.tokens.accessExpiresAt;
+      }
 
       const permissions = await dependencies.oidc.getUmaPermissions({
-        accessToken: context.tokens.accessToken,
+        accessToken,
         target,
       });
+      const permissionsExpiresAt = Math.min(
+        accessExpiresAt,
+        session.idleExpiresAt,
+        session.absoluteExpiresAt,
+      );
       return {
-        authenticated: true,
-        currentTool: input.tool,
-        currentClient: target.clientId,
+        ...coordinated,
         identity: session.identity,
-        realmRoles: [...context.realmRoles],
-        clientRoles: [...context.clientRoles],
-        groups: [...context.groups],
         permissions: permissions.map((permission) => ({
           resource: permission.resource,
           scopes: [...permission.scopes],
         })),
-        contextExpiresAt: Math.min(
-          context.tokens.accessExpiresAt,
-          session.idleExpiresAt,
-          session.absoluteExpiresAt,
-        ),
-        permissionsExpiresAt: Math.min(
-          context.tokens.accessExpiresAt,
-          session.idleExpiresAt,
-          session.absoluteExpiresAt,
-        ),
+        contextExpiresAt: permissionsExpiresAt,
+        permissionsExpiresAt,
         sessionExpiresAt: Math.min(
           session.idleExpiresAt,
           session.absoluteExpiresAt,
@@ -430,21 +440,28 @@ export class AuthService {
         tool: input.tool,
       });
       const session = await dependencies.sessions.get(input.sid);
-      const context = session.clients[input.tool];
-      if (
-        !this.contextIsUsable(
-          context,
-          session,
-          input.tool,
-          target,
-          dependencies.config,
+      let accessToken: string;
+      if (input.tool === dependencies.config.hubToolKey) {
+        if (!this.primaryIsUsable(session, dependencies.config))
+          throw new AuthPublicError('AUTH_SERVICE_UNAVAILABLE');
+        accessToken = session.primary.accessToken;
+      } else {
+        const context = session.clients[input.tool];
+        if (
+          !this.contextIsUsable(
+            context,
+            session,
+            input.tool,
+            target,
+            dependencies.config,
+          )
         )
-      ) {
-        throw new AuthPublicError('AUTH_SERVICE_UNAVAILABLE');
+          throw new AuthPublicError('AUTH_SERVICE_UNAVAILABLE');
+        accessToken = context.tokens.accessToken;
       }
 
       const authorized = await dependencies.oidc.evaluateUmaDecision({
-        accessToken: context.tokens.accessToken,
+        accessToken,
         target,
         resource: input.resource,
         scope: input.scope,
@@ -609,6 +626,48 @@ export class AuthService {
       dependencies,
       attempt + 1,
     );
+  }
+
+  private async ensurePrimaryToolContext(
+    sid: string,
+    tool: string,
+    target: Readonly<ClientCatalogEntry>,
+    dependencies: ReturnType<AuthService['enabled']>,
+  ): Promise<CoordinatedClientContextResponse> {
+    const observed = await dependencies.sessions.get(sid);
+    const session = this.primaryIsUsable(observed, dependencies.config)
+      ? await this.recordActivity(sid, observed, dependencies)
+      : await this.refreshPrimary(sid, observed, dependencies, 0, {
+          recordActivity: true,
+          force: false,
+        });
+    if (!this.primaryIsUsable(session, dependencies.config))
+      throw new AuthPublicError('AUTH_SERVICE_UNAVAILABLE');
+    const claims = await dependencies.oidc.validateToolAccessToken(
+      session.primary.accessToken,
+      session.subject,
+      target,
+    );
+    return {
+      authenticated: true,
+      currentTool: tool,
+      currentClient: target.clientId,
+      identity: session.identity,
+      realmRoles: [...claims.realmRoles],
+      clientRoles: [...claims.clientRoles],
+      groups: [...claims.groups],
+      contextExpiresAt: Math.min(
+        claims.expiresAt,
+        session.primary.accessExpiresAt,
+        session.idleExpiresAt,
+        session.absoluteExpiresAt,
+      ),
+      sessionExpiresAt: Math.min(
+        session.idleExpiresAt,
+        session.absoluteExpiresAt,
+      ),
+      sessionAbsoluteExpiresAt: session.absoluteExpiresAt,
+    };
   }
 
   private async ensurePrimaryForClient(

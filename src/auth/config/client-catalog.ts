@@ -24,7 +24,7 @@ export class UnknownWebToolError extends Error {
 
 const TOOL_KEY_PATTERN = /^[a-z][a-z0-9-]{0,63}$/;
 const TECHNICAL_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
-const ENTRY_PROPERTIES = ['clientId', 'audience', 'resourceServer'] as const;
+const ENTRY_PROPERTIES = ['clientId'] as const;
 const DANGEROUS_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
 
 function invalidCatalog(): never {
@@ -59,8 +59,6 @@ export function parseClientCatalog(
     null,
   ) as Record<string, Readonly<ClientCatalogEntry>>;
   const clientIds = new Set<string>();
-  const audiences = new Set<string>();
-  const resourceServers = new Set<string>();
 
   for (const [toolKey, rawEntry] of Object.entries(parsed)) {
     if (
@@ -85,24 +83,15 @@ export function parseClientCatalog(
 
     const values = rawEntry as Record<string, unknown>;
     const clientId = readTechnicalId(values.clientId);
-    const audience = readTechnicalId(values.audience);
-    const resourceServer = readTechnicalId(values.resourceServer);
 
-    if (
-      clientId === hubClientId ||
-      audience === hubClientId ||
-      resourceServer === hubClientId ||
-      clientIds.has(clientId) ||
-      audiences.has(audience) ||
-      resourceServers.has(resourceServer)
-    ) {
-      invalidCatalog();
-    }
+    if (clientId === hubClientId || clientIds.has(clientId)) invalidCatalog();
 
     clientIds.add(clientId);
-    audiences.add(audience);
-    resourceServers.add(resourceServer);
-    catalog[toolKey] = Object.freeze({ clientId, audience, resourceServer });
+    catalog[toolKey] = Object.freeze({
+      clientId,
+      audience: clientId,
+      resourceServer: clientId,
+    });
   }
 
   return Object.freeze(catalog);

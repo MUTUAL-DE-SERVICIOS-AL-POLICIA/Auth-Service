@@ -1,10 +1,7 @@
 /// <reference types="jest" />
 import { createServer, Server } from 'node:http';
 import { exportJWK, generateKeyPair, KeyLike, SignJWT } from 'jose';
-import {
-  parseClientCatalog,
-  resolveTool,
-} from '../config/client-catalog';
+import { parseClientCatalog, resolveTool } from '../config/client-catalog';
 import { AuthConfig } from '../config/auth.config';
 import { KeycloakClient, OidcError } from './keycloak-client';
 
@@ -137,20 +134,31 @@ describe('KeycloakClient token exchange', () => {
       JSON.stringify({
         beneficiary: {
           clientId: 'beneficiary-interface',
-          audience: 'beneficiary-interface',
-          resourceServer: 'beneficiary-interface',
         },
       }),
       'hub-interface',
     );
+    const hubTarget = Object.freeze({
+      clientId: 'hub-interface',
+      audience: 'hub-interface',
+      resourceServer: 'hub-interface',
+    });
     config = {
       issuer,
+      hubToolKey: 'hub',
       hubClientId: 'hub-interface',
       hubClientType: 'confidential',
       hubClientSecret: 'hub-secret-for-test',
       callbackUrl: 'http://localhost/callback',
       clientCatalog,
-      resolveTool: (toolKey: string) => resolveTool(clientCatalog, toolKey),
+      hubTarget,
+      resolveTool: (toolKey: string) =>
+        toolKey === 'hub' ? hubTarget : resolveTool(clientCatalog, toolKey),
+      isKnownTarget: (target: unknown) =>
+        target === hubTarget ||
+        Object.values(clientCatalog).includes(target as never),
+      isExchangeTarget: (target: unknown) =>
+        Object.values(clientCatalog).includes(target as never),
     } as AuthConfig;
     client = new KeycloakClient(config);
     tokenStatus = 200;
@@ -510,6 +518,17 @@ describe('KeycloakClient token exchange', () => {
         subjectToken: 'primary-access-token-for-test',
         expectedSubject: 'subject-1',
         target: { ...config.clientCatalog.beneficiary },
+      }),
+    ).rejects.toMatchObject({ kind: 'invalid_configuration' });
+    expect(requestBody).toBe('');
+  });
+
+  it('never allows token exchange toward the primary Hub target', async () => {
+    await expect(
+      client.exchangeWebClientToken({
+        subjectToken: 'primary-access-token-for-test',
+        expectedSubject: 'subject-1',
+        target: config.hubTarget,
       }),
     ).rejects.toMatchObject({ kind: 'invalid_configuration' });
     expect(requestBody).toBe('');

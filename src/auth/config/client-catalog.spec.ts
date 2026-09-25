@@ -8,6 +8,9 @@ import {
 
 const beneficiary = {
   clientId: 'beneficiary-interface',
+};
+const normalizedBeneficiary = {
+  clientId: 'beneficiary-interface',
   audience: 'beneficiary-interface',
   resourceServer: 'beneficiary-interface',
 };
@@ -24,7 +27,7 @@ describe('web client catalog', () => {
 
   it('accepts the approved beneficiary entry', () => {
     expect(parseClientCatalog(catalogJson(), 'hub-client')).toEqual({
-      beneficiary,
+      beneficiary: normalizedBeneficiary,
     });
   });
 
@@ -49,13 +52,10 @@ describe('web client catalog', () => {
 
   it('rejects absent, empty and non-normalized fields', () => {
     for (const entry of [
-      {
-        audience: beneficiary.audience,
-        resourceServer: beneficiary.resourceServer,
-      },
+      {},
       { ...beneficiary, clientId: '' },
-      { ...beneficiary, audience: ' beneficiary-interface' },
-      { ...beneficiary, resourceServer: 'beneficiary-interface\u200b' },
+      { ...beneficiary, clientId: ' beneficiary-interface' },
+      { ...beneficiary, clientId: 'beneficiary-interface\u200b' },
     ]) {
       expect(() =>
         parseClientCatalog(catalogJson(entry), 'hub-client'),
@@ -80,18 +80,9 @@ describe('web client catalog', () => {
   });
 
   it('rejects the Hub as a secondary context', () => {
-    for (const property of [
-      'clientId',
-      'audience',
-      'resourceServer',
-    ] as const) {
-      expect(() =>
-        parseClientCatalog(
-          catalogJson({ ...beneficiary, [property]: 'hub-client' }),
-          'hub-client',
-        ),
-      ).toThrow(ClientCatalogConfigError);
-    }
+    expect(() =>
+      parseClientCatalog(catalogJson({ clientId: 'hub-client' }), 'hub-client'),
+    ).toThrow(ClientCatalogConfigError);
   });
 
   it('rejects ambiguous technical identifiers between tools', () => {
@@ -105,11 +96,10 @@ describe('web client catalog', () => {
 
   it('resolves only the exact configured tool key', () => {
     const catalog = parseClientCatalog(catalogJson(), 'hub-client');
-    expect(resolveTool(catalog, 'beneficiary')).toEqual(beneficiary);
+    expect(resolveTool(catalog, 'beneficiary')).toEqual(normalizedBeneficiary);
     for (const alias of [
       'beneficiary-interface',
       beneficiary.clientId,
-      beneficiary.audience,
       'unknown',
     ]) {
       expect(() => resolveTool(catalog, alias)).toThrow(UnknownWebToolError);
