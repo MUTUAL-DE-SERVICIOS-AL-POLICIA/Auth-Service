@@ -31,7 +31,7 @@ return 0
 const UPDATE_CLIENT_CONTEXT_SCRIPT = `
 local raw = redis.call('GET', KEYS[1])
 if not raw then return 0 end
-if redis.call('GET', KEYS[2]) ~= ARGV[6] then return -5 end
+if redis.call('GET', KEYS[2]) ~= ARGV[7] then return -5 end
 local ok, current = pcall(cjson.decode, raw)
 if not ok or current.schemaVersion ~= 2 then return -2 end
 if current.status ~= 'active' then return -3 end
@@ -41,15 +41,19 @@ if not contextOk or context.tool ~= ARGV[2] then return -2 end
 if context.subject ~= current.subject or context.issuer ~= current.issuer then return -2 end
 local now = tonumber(ARGV[4])
 if current.absoluteExpiresAt <= now or current.idleExpiresAt <= now then return -4 end
-local idleExpiresAt = math.min(current.absoluteExpiresAt, now + tonumber(ARGV[5]))
-local ttl = math.ceil((math.min(current.absoluteExpiresAt, idleExpiresAt) - now) / 1000)
-if ttl < 1 then return -4 end
-if type(current.clients) ~= 'table' then return -2 end
-current.clients[ARGV[2]] = context
-current.revision = current.revision + 1
-current.lastActivityAt = now
-current.idleExpiresAt = idleExpiresAt
-redis.call('SET', KEYS[1], cjson.encode(current), 'EX', ttl)
+local nextOk, nextSession = pcall(cjson.decode, ARGV[5])
+if not nextOk or nextSession.schemaVersion ~= 2 then return -2 end
+if nextSession.status ~= 'active' then return -3 end
+if nextSession.revision ~= current.revision + 1 then return -2 end
+if nextSession.subject ~= current.subject or nextSession.issuer ~= current.issuer then return -2 end
+if nextSession.hubClientId ~= current.hubClientId then return -2 end
+if type(nextSession.clients) ~= 'table' then return -2 end
+local nextContext = nextSession.clients[ARGV[2]]
+if type(nextContext) ~= 'table' or nextContext.tool ~= ARGV[2] then return -2 end
+if nextContext.subject ~= current.subject or nextContext.issuer ~= current.issuer then return -2 end
+local ttl = tonumber(ARGV[6])
+if not ttl or ttl < 1 then return -4 end
+redis.call('SET', KEYS[1], ARGV[5], 'EX', ttl)
 return 1
 `;
 
@@ -268,6 +272,22 @@ export class SessionStore {
     ) {
       throw new SessionError();
     }
+    const current = await this.get(sid);
+    if (current.revision !== expectedRevision) return 'revision_mismatch';
+    if (current.absoluteExpiresAt <= now || current.idleExpiresAt <= now)
+      throw new SessionError();
+    const next: Session = {
+      ...current,
+      revision: current.revision + 1,
+      lastActivityAt: now,
+      idleExpiresAt: Math.min(
+        current.absoluteExpiresAt,
+        now + this.config.sessionIdleTtlSeconds * 1000,
+      ),
+      clients: { ...current.clients, [tool]: context },
+    };
+    this.validate(next, now);
+    const ttl = this.ttl(next, now);
     const result = await this.redis.execute((client) =>
       client.eval(
         UPDATE_CLIENT_CONTEXT_SCRIPT,
@@ -278,7 +298,8 @@ export class SessionStore {
         tool,
         JSON.stringify(context),
         String(now),
-        String(this.config.sessionIdleTtlSeconds * 1000),
+        JSON.stringify(next),
+        String(ttl),
         lockOwner,
       ),
     );

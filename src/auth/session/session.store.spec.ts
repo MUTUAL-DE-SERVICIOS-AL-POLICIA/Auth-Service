@@ -29,10 +29,10 @@ describe('SessionStore', () => {
     expire: jest.fn(async (_key: string, _seconds: number) => 1),
     eval: jest.fn(
       async (script: string, _keys: number, key: string, ...args: string[]) => {
-        if (script.includes('current.clients[ARGV[2]]')) {
+        if (script.includes('nextSession.clients[ARGV[2]]')) {
           const raw = entries.get(key);
           if (!raw) return 0;
-          if (entries.get(args[0]) !== args[6]) return -5;
+          if (entries.get(args[0]) !== args[7]) return -5;
           const current = JSON.parse(raw);
           if (current.schemaVersion !== 2) return -2;
           if (current.status !== 'active') return -3;
@@ -45,14 +45,15 @@ describe('SessionStore', () => {
           )
             return -2;
           const now = Number(args[4]);
-          current.clients[args[2]] = context;
-          current.revision += 1;
-          current.lastActivityAt = now;
-          current.idleExpiresAt = Math.min(
-            current.absoluteExpiresAt,
-            now + Number(args[5]),
-          );
-          entries.set(key, JSON.stringify(current));
+          const next = JSON.parse(args[5]);
+          if (
+            next.revision !== current.revision + 1 ||
+            next.subject !== current.subject ||
+            next.issuer !== current.issuer ||
+            next.lastActivityAt !== now
+          )
+            return -2;
+          entries.set(key, args[5]);
           return 1;
         }
         if (script.includes('current.revision')) {
@@ -344,5 +345,45 @@ describe('SessionStore', () => {
         now,
       ),
     ).resolves.toBe('lock_lost');
+  });
+
+  it('preserves empty claim arrays when atomically storing a client context', async () => {
+    const session = fixture();
+    const sid = await store.create(session);
+    const now = Date.now();
+    const context = {
+      tool: 'sales',
+      clientId: 'sales-interface',
+      audience: 'sales-interface',
+      resourceServer: 'sales-interface',
+      source: 'token-exchange' as const,
+      tokens: {
+        tokenType: 'Bearer' as const,
+        accessToken: 'secondary-token',
+        accessExpiresAt: now + 300_000,
+        issuedAt: now,
+      },
+      subject: session.subject,
+      issuer: session.issuer,
+      realmRoles: [],
+      clientRoles: ['user'],
+      groups: [],
+    };
+
+    await expect(
+      store.replaceClientContext(
+        sid,
+        1,
+        'sales',
+        context,
+        await store.acquireClientLock(sid, 'sales').then((value) => value!),
+        now,
+      ),
+    ).resolves.toBe('updated');
+
+    const stored = await store.get(sid);
+    expect(stored.clients.sales).toEqual(context);
+    expect(Array.isArray(stored.clients.sales.realmRoles)).toBe(true);
+    expect(Array.isArray(stored.clients.sales.groups)).toBe(true);
   });
 });
