@@ -139,6 +139,43 @@ describe('AuthService authorization coordination', () => {
       ...request,
     } as any);
 
+  it('checks a tool session without requesting its permission inventory', async () => {
+    await expect(
+      service.checkWebClient({ sid, tool: 'beneficiary' }),
+    ).resolves.toEqual({
+      authenticated: true,
+      currentTool: 'beneficiary',
+      actor: {
+        sub: 'person-1',
+        preferredUsername: 'operator',
+        name: 'Test Operator',
+      },
+    });
+    expect(oidc.evaluateUmaDecision).toHaveBeenCalledTimes(1);
+    expect(oidc.evaluateUmaDecision).toHaveBeenCalledWith({
+      accessToken: 'primary-token',
+      target: hubTarget,
+      resource: 'beneficiary-interface',
+      scope: 'launch',
+    });
+    expect(service.ensureWebClientContext).toHaveBeenCalledWith({
+      sid,
+      tool: 'beneficiary',
+    });
+  });
+
+  it('rejects additional client-check fields before coordination', async () => {
+    await expect(
+      service.checkWebClient({
+        sid,
+        tool: 'beneficiary',
+        resource: 'persons',
+      } as any),
+    ).rejects.toMatchObject({ code: 'INVALID_CLIENT_REQUEST' });
+    expect(service.ensureWebClientContext).not.toHaveBeenCalled();
+    expect(oidc.evaluateUmaDecision).not.toHaveBeenCalled();
+  });
+
   it('returns an approved decision with only the minimum actor', async () => {
     await expect(authorize()).resolves.toEqual({
       authorized: true,

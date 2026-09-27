@@ -3,6 +3,7 @@ import { MessagePattern, Payload, RpcException } from '@nestjs/microservices';
 import {
   BackchannelLogoutRequest,
   CheckSessionRequest,
+  CheckWebClientRequest,
   CheckWebAuthorizationRequest,
   EnsureWebClientContextRequest,
   ExchangeWebCodeRequest,
@@ -49,6 +50,11 @@ export class AuthController {
   @MessagePattern(WebAuthPatterns.clientEnsure)
   ensureClient(@Payload() request: EnsureWebClientContextRequest) {
     return this.publicResult(() => this.webAuth.getWebClientContext(request));
+  }
+
+  @MessagePattern(WebAuthPatterns.clientCheck)
+  checkClient(@Payload() request: CheckWebClientRequest) {
+    return this.publicResult(() => this.webAuth.checkWebClient(request));
   }
 
   @MessagePattern(WebAuthPatterns.authorizationCheck)

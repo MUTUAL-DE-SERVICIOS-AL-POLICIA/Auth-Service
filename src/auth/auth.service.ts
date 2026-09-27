@@ -3,6 +3,8 @@ import { JWTPayload } from 'jose';
 import {
   CheckSessionRequest,
   CheckSessionResponse,
+  CheckWebClientRequest,
+  CheckWebClientResponse,
   CheckWebAuthorizationRequest,
   CheckWebAuthorizationResponse,
   EnsureWebClientContextRequest,
@@ -404,6 +406,73 @@ export class AuthService {
         ),
         sessionAbsoluteExpiresAt: session.absoluteExpiresAt,
       };
+    } catch (error) {
+      throw asClientEnsureError(error);
+    }
+  }
+
+  async checkWebClient(
+    input: CheckWebClientRequest,
+  ): Promise<CheckWebClientResponse> {
+    const dependencies = this.enabled();
+    try {
+      if (
+        !input ||
+        typeof input !== 'object' ||
+        Object.getPrototypeOf(input) !== Object.prototype ||
+        Object.keys(input).length !== 2 ||
+        !Object.prototype.hasOwnProperty.call(input, 'sid') ||
+        !Object.prototype.hasOwnProperty.call(input, 'tool') ||
+        typeof input.sid !== 'string' ||
+        typeof input.tool !== 'string' ||
+        !OPAQUE_ID.test(input.sid) ||
+        !TOOL_KEY.test(input.tool)
+      )
+        throw new AuthPublicError('INVALID_CLIENT_REQUEST');
+
+      let target: Readonly<ClientCatalogEntry>;
+      try {
+        target = dependencies.config.resolveTool(input.tool);
+      } catch (error) {
+        if (error instanceof UnknownWebToolError)
+          throw new AuthPublicError('WEB_TOOL_UNAVAILABLE');
+        throw error;
+      }
+
+      await this.assertToolLaunchAccess(
+        input.sid,
+        input.tool,
+        target,
+        dependencies,
+      );
+      await this.ensureWebClientContext(input);
+      const session = await dependencies.sessions.get(input.sid);
+      const contextIsUsable =
+        input.tool === dependencies.config.hubToolKey
+          ? this.primaryIsUsable(session, dependencies.config)
+          : this.contextIsUsable(
+              session.clients[input.tool],
+              session,
+              input.tool,
+              target,
+              dependencies.config,
+            );
+      if (!contextIsUsable)
+        throw new AuthPublicError('AUTH_SERVICE_UNAVAILABLE');
+
+      const actor: WebAuthorizationActor = { sub: session.subject };
+      if (
+        typeof session.identity.preferredUsername === 'string' &&
+        /\S/.test(session.identity.preferredUsername)
+      )
+        actor.preferredUsername = session.identity.preferredUsername;
+      if (
+        typeof session.identity.name === 'string' &&
+        /\S/.test(session.identity.name)
+      )
+        actor.name = session.identity.name;
+
+      return { authenticated: true, currentTool: input.tool, actor };
     } catch (error) {
       throw asClientEnsureError(error);
     }

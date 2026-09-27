@@ -84,6 +84,14 @@ export interface EnsureWebClientContextRequest {
   tool: string;
 }
 
+export type CheckWebClientRequest = EnsureWebClientContextRequest;
+
+export interface CheckWebClientResponse {
+  authenticated: true;
+  currentTool: string;
+  actor: WebAuthorizationActor;
+}
+
 export interface EnsureWebClientContextResponse {
   authenticated: true;
   currentTool: string;
@@ -125,6 +133,7 @@ export const WebAuthPatterns = {
   loginExchange: 'web-auth.login.exchange',
   logout: 'web-auth.logout',
   sessionCheck: 'web-auth.session.check',
+  clientCheck: 'web-auth.client.check',
   clientEnsure: 'web-auth.client.ensure',
   authorizationCheck: 'web-auth.authorization.check',
   backchannelLogout: 'web-auth.backchannel.logout',

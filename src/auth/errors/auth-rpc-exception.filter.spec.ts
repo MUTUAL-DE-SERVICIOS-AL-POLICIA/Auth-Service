@@ -118,6 +118,15 @@ describe('AuthRpcExceptionFilter', () => {
     ).toEqual([WebAuthPatterns.clientEnsure]);
   });
 
+  it('keeps client check on the filtered AuthController', () => {
+    expect(
+      Reflect.getMetadata(
+        PATTERN_METADATA,
+        AuthController.prototype.checkClient,
+      ),
+    ).toEqual([WebAuthPatterns.clientCheck]);
+  });
+
   it('keeps authorization check on the filtered AuthController', () => {
     expect(
       Reflect.getMetadata(PATTERN_METADATA, AuthController.prototype.authorize),
