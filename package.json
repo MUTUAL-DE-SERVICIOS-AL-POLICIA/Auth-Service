@@ -17,13 +17,7 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json",
-    "seed:run": "yarn build && node ./node_modules/typeorm-extension/bin/cli.cjs seed:run -d src/database/data-source.ts",
-    "seed:create": "node ./node_modules/typeorm-extension/bin/cli.cjs seed:create",
-    "migration:show": "ts-node -r tsconfig-paths/register ./node_modules/.bin/typeorm migration:show -d src/database/data-source.ts",
-    "migration:create": "ts-node -r tsconfig-paths/register ./node_modules/.bin/typeorm migration:create src/database/migrations/",
-    "migration:run": "ts-node -r tsconfig-paths/register ./node_modules/.bin/typeorm migration:run -d src/database/data-source.ts",
-    "migration:revert": "ts-node -r tsconfig-paths/register ./node_modules/.bin/typeorm migration:revert -d src/database/data-source.ts"
+    "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
     "@nestjs/common": "11.1.28",
@@ -33,21 +27,15 @@
     "@nestjs/mapped-types": "2.1.1",
     "@nestjs/microservices": "11.1.28",
     "@nestjs/platform-express": "11.1.28",
-    "@nestjs/typeorm": "11.0.3",
     "class-transformer": "0.5.1",
     "class-validator": "0.15.1",
     "ioredis": "5.10.0",
     "joi": "18.2.3",
     "jose": "5.10.0",
     "jsonwebtoken": "9.0.3",
-    "ldapts": "9.0.0",
     "nats": "2.29.3",
-    "pg": "8.22.0",
     "reflect-metadata": "0.2.2",
-    "rxjs": "7.8.2",
-    "typeorm": "0.3.28",
-    "typeorm-extension": "3.9.0",
-    "typeorm-naming-strategies": "4.1.0"
+    "rxjs": "7.8.2"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

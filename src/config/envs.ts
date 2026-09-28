@@ -2,108 +2,35 @@ import * as joi from 'joi';
 
 interface EnvVars {
   NATS_SERVERS: string[];
-  ENVIRONMENT: string;
-  DB_PASSWORD: string;
-  DB_DATABASE: string;
-  DB_HOST: string;
-  DB_PORT: number;
-  DB_USERNAME: string;
-  DB_SYNCHRONIZE: boolean;
-  DB_SCHEMA: string;
-  LDAP_AUTHENTICATION: boolean;
-  LDAP_HOST: string;
-  LDAP_PORT: number;
-  LDAP_ADMIN_PREFIX: string;
-  LDAP_ADMIN_USERNAME: string;
-  LDAP_ADMIN_PASSWORD: string;
-  LDAP_ACCOUNT_PREFIX: string;
-  LDAP_ACCOUNT_SUFFIX: string;
-  LDAP_BASEDN: string;
-  JWT_SECRET: string;
-  API_KEY: string;
-  USER_TEST_DEVICE: string;
+  USER_TEST_DEVICE?: string;
   USER_TEST_ACCESS: boolean;
-  BCB_JWT_PRIVATE_KEY: string;
-  BCB_JWT_PUBLIC_KEY: string;
+  BCB_JWT_PRIVATE_KEY?: string;
+  BCB_JWT_PUBLIC_KEY?: string;
 }
 
 const envsSchema = joi
   .object({
     NATS_SERVERS: joi.array().items(joi.string()).required(),
-    ENVIRONMENT: joi.string().valid('prod', 'test', 'dev').required(),
-    LDAP_HOST: joi.string().required(),
-    LDAP_PORT: joi.number().required(),
-    LDAP_ADMIN_PREFIX: joi.string().required(),
-    LDAP_ADMIN_USERNAME: joi.string().required(),
-    LDAP_ADMIN_PASSWORD: joi.string().required(),
-    LDAP_ACCOUNT_PREFIX: joi.string().required(),
-    LDAP_ACCOUNT_SUFFIX: joi.string().required(),
-    LDAP_BASEDN: joi.string().required(),
-    JWT_SECRET: joi.string().required(),
-    API_KEY: joi.string(),
-    USER_TEST_DEVICE: joi.string(),
+    USER_TEST_DEVICE: joi.string().allow('').optional(),
     USER_TEST_ACCESS: joi.boolean().default(false),
-    BCB_JWT_PRIVATE_KEY: joi.string(),
-    BCB_JWT_PUBLIC_KEY: joi.string(),
-
-    DB_PASSWORD: joi.string().required(),
-    DB_DATABASE: joi.string().required(),
-    DB_HOST: joi.string().required(),
-    DB_PORT: joi.number().required(),
-    DB_USERNAME: joi.string().required(),
-    DB_SYNCHRONIZE: joi.string().valid('true', 'false').default('false'),
-    DB_SCHEMA: joi.string().default('beneficiaries'),
+    BCB_JWT_PRIVATE_KEY: joi.string().allow('').optional(),
+    BCB_JWT_PUBLIC_KEY: joi.string().allow('').optional(),
   })
   .unknown(true);
 
 const { error, value } = envsSchema.validate({
   ...process.env,
   NATS_SERVERS: process.env.NATS_SERVERS?.split(','),
-  DB_SYNCHRONIZE: process.env.DB_SYNCHRONIZE?.toLowerCase(),
 });
 
 if (error) {
   throw new Error(`Config validation error: ${error.message}`);
 }
 
-const envVars: EnvVars = {
-  ...value,
-  DB_SYNCHRONIZE: value.DB_SYNCHRONIZE === 'true',
-};
+const envVars = value as EnvVars;
 
 export const NastEnvs = {
   natsServers: envVars.NATS_SERVERS,
-};
-
-export const EnvironmentEnvs = {
-  environment: envVars.ENVIRONMENT,
-};
-
-export const LdapEnvs = {
-  ldapAuthentication: envVars.LDAP_AUTHENTICATION,
-  ldapHost: envVars.LDAP_HOST,
-  ldapPort: envVars.LDAP_PORT,
-  ldapAdminPrefix: envVars.LDAP_ADMIN_PREFIX,
-  ldapAdminUsername: envVars.LDAP_ADMIN_USERNAME,
-  ldapAdminPassword: envVars.LDAP_ADMIN_PASSWORD,
-  ldapAccountPrefix: envVars.LDAP_ACCOUNT_PREFIX,
-  ldapAccountSuffix: envVars.LDAP_ACCOUNT_SUFFIX,
-  ldapBaseDN: envVars.LDAP_BASEDN,
-};
-
-export const SecretEnvs = {
-  jwtSecret: envVars.JWT_SECRET,
-  apiKey: envVars.API_KEY,
-};
-
-export const DbEnvs = {
-  dbPassword: envVars.DB_PASSWORD,
-  dbDatabase: envVars.DB_DATABASE,
-  dbHost: envVars.DB_HOST,
-  dbPort: envVars.DB_PORT,
-  dbUsername: envVars.DB_USERNAME,
-  dbSynchronize: envVars.DB_SYNCHRONIZE,
-  dbSchema: envVars.DB_SCHEMA,
 };
 
 export const TestDeviceEnvs = {
