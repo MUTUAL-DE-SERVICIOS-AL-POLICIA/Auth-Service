@@ -31,7 +31,11 @@ export interface AuthConfig {
   isExchangeTarget(target: Readonly<ClientCatalogEntry>): boolean;
 }
 
-function absoluteUrl(value: string | undefined, name: string): string {
+function absoluteUrl(
+  value: string | undefined,
+  name: string,
+  preserveTrailingSlash = false,
+): string {
   try {
     const url = new URL(value || '');
     if (
@@ -43,7 +47,8 @@ function absoluteUrl(value: string | undefined, name: string): string {
     ) {
       throw new Error();
     }
-    return url.toString().replace(/\/$/, '');
+    const normalized = url.toString();
+    return preserveTrailingSlash ? normalized : normalized.replace(/\/$/, '');
   } catch {
     throw new Error(
       `${name} must be an absolute HTTP(S) URL without credentials, query or fragment`,
@@ -103,6 +108,7 @@ export function readAuthConfig(
   const postLogoutRedirectUrl = absoluteUrl(
     env.OIDC_HUB_POST_LOGOUT_REDIRECT_URL,
     'OIDC_HUB_POST_LOGOUT_REDIRECT_URL',
+    true,
   );
   const internalBaseUrl = env.OIDC_INTERNAL_BASE_URL
     ? absoluteUrl(env.OIDC_INTERNAL_BASE_URL, 'OIDC_INTERNAL_BASE_URL')

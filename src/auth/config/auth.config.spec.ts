@@ -50,6 +50,17 @@ describe('web auth configuration', () => {
       'Web tool is not configured',
     );
   });
+  it('preserves the exact post logout redirect URL', () => {
+    expect(readAuthConfig(valid)?.postLogoutRedirectUrl).toBe(
+      'http://localhost:3001/',
+    );
+    expect(
+      readAuthConfig({
+        ...valid,
+        OIDC_HUB_POST_LOGOUT_REDIRECT_URL: 'http://localhost:3001/signed-out/',
+      })?.postLogoutRedirectUrl,
+    ).toBe('http://localhost:3001/signed-out/');
+  });
   it('requires a secret only for a confidential Hub', () => {
     expect(readAuthConfig(valid)?.hubClientSecret).toBeUndefined();
     expect(() =>
