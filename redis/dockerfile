@@ -1,0 +1,8 @@
+FROM redis:7-alpine
+
+COPY redis.conf /usr/local/etc/redis/redis.conf
+COPY redis-entrypoint.sh /usr/local/bin/muserpol-redis-entrypoint
+RUN chmod 0555 /usr/local/bin/muserpol-redis-entrypoint
+
+ENTRYPOINT ["/usr/local/bin/muserpol-redis-entrypoint"]
+CMD ["redis-server", "/usr/local/etc/redis/redis.conf"]

@@ -1,0 +1,237 @@
+/* Keycloak 26.0.1 / PatternFly 5: keep native layout and interaction states. */
+:root {
+  color-scheme: light;
+  --pf-v5-global--Color--100: #1f2937;
+  --pf-v5-global--Color--200: #4b5563;
+  --pf-v5-global--BackgroundColor--100: #fff;
+  --pf-v5-global--BackgroundColor--200: #f3f4f6;
+  --pf-v5-global--BorderColor--100: #d1d5db;
+  --pf-v5-global--BorderColor--200: #9aa3af;
+  --pf-v5-global--disabled-color--100: #6b7280;
+  --pf-v5-global--disabled-color--200: #e5e7eb;
+  --muserpol-green: #06733d;
+  --muserpol-green-hover: #055f32;
+  --muserpol-green-light: #eaf6f0;
+  --muserpol-border: #e5e7eb;
+  --muserpol-background: #f3f4f6;
+  --pf-v5-global--primary-color--100: var(--muserpol-green);
+  --pf-v5-global--primary-color--200: var(--muserpol-green-hover);
+  --pf-v5-global--active-color--100: var(--muserpol-green);
+  --pf-v5-global--link--Color: var(--muserpol-green);
+  --pf-v5-global--link--Color--hover: var(--muserpol-green-hover);
+  --pf-v5-global--FontFamily--text: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, Cantarell, "Noto Sans", sans-serif;
+  --pf-v5-global--FontFamily--heading: var(--pf-v5-global--FontFamily--text);
+}
+body {
+  color: #1f2937;
+  background: var(--muserpol-background);
+  font-family: var(--pf-v5-global--FontFamily--text);
+}
+/* Override the native dark masthead palette locally. */
+.pf-v5-c-masthead {
+  --pf-v5-c-masthead--BackgroundColor: #fff;
+  --pf-v5-global--Color--100: #1f2937;
+  --pf-v5-global--Color--200: #374151;
+  --pf-v5-global--primary-color--100: var(--muserpol-green);
+  --pf-v5-global--link--Color: var(--muserpol-green);
+  color: #1f2937;
+  border-bottom: 1px solid var(--muserpol-border);
+  box-shadow: 0 2px 12px rgb(0 0 0 / 4%);
+}
+.pf-v5-c-masthead .pf-v5-c-toolbar {
+  --pf-v5-c-toolbar--BackgroundColor: transparent;
+}
+.pf-v5-c-masthead__brand img {
+  width: auto;
+  max-width: min(240px, 45vw);
+  height: 44px;
+  object-fit: contain;
+}
+.pf-v5-c-page__sidebar {
+  --pf-v5-c-page__sidebar--BackgroundColor: #fff;
+  border-right: 1px solid var(--muserpol-border);
+}
+.pf-v5-c-nav {
+  --pf-v5-c-nav__link--Color: #374151;
+  --pf-v5-c-nav__link--hover--Color: var(--muserpol-green-hover);
+  --pf-v5-c-nav__link--focus--Color: var(--muserpol-green-hover);
+  --pf-v5-c-nav__link--m-current--Color: var(--muserpol-green-hover);
+  --pf-v5-c-nav__link--hover--BackgroundColor: var(--muserpol-green-light);
+  --pf-v5-c-nav__link--focus--BackgroundColor: var(--muserpol-green-light);
+  --pf-v5-c-nav__link--m-current--BackgroundColor: var(--muserpol-green-light);
+  --pf-v5-c-nav__link--m-current--after--BorderColor: var(--muserpol-green);
+}
+.pf-v5-c-page__main { background: var(--muserpol-background); }
+.pf-v5-c-card {
+  --pf-v5-c-card--BoxShadow: 0 8px 28px rgb(0 0 0 / 6%);
+  border: 1px solid var(--muserpol-border);
+  border-radius: 18px;
+}
+.pf-v5-c-button {
+  --pf-v5-c-button--BorderRadius: 12px;
+  --pf-v5-c-button--after--BorderRadius: 12px;
+}
+.pf-v5-c-button.pf-m-primary:not(.pf-m-danger) {
+  --pf-v5-c-button--m-primary--BackgroundColor: var(--muserpol-green);
+  --pf-v5-c-button--m-primary--hover--BackgroundColor: var(--muserpol-green-hover);
+  --pf-v5-c-button--m-primary--focus--BackgroundColor: var(--muserpol-green-hover);
+  --pf-v5-c-button--m-primary--active--BackgroundColor: var(--muserpol-green-hover);
+  font-weight: 800;
+}
+.pf-v5-c-button.pf-m-secondary:not(.pf-m-danger) {
+  --pf-v5-c-button--m-secondary--Color: var(--muserpol-green);
+  --pf-v5-c-button--m-secondary--after--BorderColor: var(--muserpol-green);
+  --pf-v5-c-button--m-secondary--hover--Color: var(--muserpol-green-hover);
+  --pf-v5-c-button--m-secondary--hover--after--BorderColor: var(--muserpol-green-hover);
+}
+/* PF5 wraps inputs; preserve validation and disabled styles. */
+.pf-v5-c-form-control {
+  --pf-v5-c-form-control--BackgroundColor: #f7f7f8;
+  --pf-v5-c-form-control--before--BorderBottomColor: #9aa3af;
+  --pf-v5-c-form-control--hover--after--BorderBottomColor: var(--muserpol-green);
+  --pf-v5-c-form-control--focus--after--BorderBottomColor: var(--muserpol-green);
+  border-radius: 12px;
+}
+.pf-v5-c-form-control:not(.pf-m-error):not(.pf-m-disabled):focus-within {
+  box-shadow: 0 0 0 4px rgb(8 136 72 / 20%);
+}
+.pf-v5-c-form__label { font-weight: 600; }
+.pf-v5-c-button:focus-visible,
+.pf-v5-c-nav__link:focus-visible {
+  outline: 2px solid var(--muserpol-green);
+  outline-offset: 3px;
+}
+.pf-v5-c-modal-box { border-radius: 18px; }
+
+/* Page sections cover profile, credentials, sessions, applications and resources. */
+.pf-v5-c-page__main-section {
+  --pf-v5-c-page__main-section--BackgroundColor: var(--muserpol-background);
+  --pf-v5-c-page__main-section--m-light--BackgroundColor: #fff;
+  color: #1f2937;
+}
+.pf-v5-c-title { color: #1f2937; font-weight: 700; }
+.pf-v5-c-content { color: #374151; }
+.pf-v5-c-content a { color: var(--muserpol-green); }
+.pf-v5-c-content a:hover { color: var(--muserpol-green-hover); }
+
+/* Masthead and sidebar otherwise inherit PatternFly's dark-region tokens. */
+.pf-v5-c-masthead,
+.pf-v5-c-page__sidebar {
+  --pf-v5-global--Color--100: #1f2937;
+  --pf-v5-global--Color--200: #4b5563;
+  --pf-v5-global--BorderColor--100: #d1d5db;
+  --pf-v5-global--BackgroundColor--100: #fff;
+  --pf-v5-global--BackgroundColor--200: #f3f4f6;
+  --pf-v5-global--icon--Color--light: #4b5563;
+  --pf-v5-global--icon--Color--dark: #1f2937;
+}
+.pf-v5-c-masthead .pf-v5-c-button.pf-m-plain {
+  color: #4b5563;
+}
+.pf-v5-c-nav {
+  --pf-v5-c-nav__link--active--Color: var(--muserpol-green-hover);
+  --pf-v5-c-nav__link--active--BackgroundColor: var(--muserpol-green-light);
+  --pf-v5-c-nav__link--after--BorderColor: var(--muserpol-border);
+  --pf-v5-c-nav__section-title--Color: #4b5563;
+}
+.pf-v5-c-nav__link { font-weight: 500; }
+.pf-v5-c-nav__link.pf-m-current { font-weight: 700; }
+
+/* Menus include language selection and the account/logout dropdown. */
+.pf-v5-c-menu-toggle,
+.pf-v5-c-dropdown__toggle,
+.pf-v5-c-select__toggle {
+  color: #1f2937;
+  background-color: #fff;
+  border-radius: 10px;
+}
+.pf-v5-c-menu-toggle::before,
+.pf-v5-c-menu-toggle::after,
+.pf-v5-c-dropdown__toggle::before,
+.pf-v5-c-select__toggle::before {
+  border-radius: inherit;
+}
+.pf-v5-c-menu,
+.pf-v5-c-dropdown__menu,
+.pf-v5-c-select__menu {
+  border: 1px solid var(--muserpol-border);
+  border-radius: 12px;
+  box-shadow: 0 8px 28px rgb(0 0 0 / 10%);
+}
+.pf-v5-c-menu__item:not(:disabled):not(.pf-m-disabled):hover,
+.pf-v5-c-dropdown__menu-item:not(:disabled):not(.pf-m-disabled):hover,
+.pf-v5-c-select__menu-item:not(:disabled):not(.pf-m-disabled):hover {
+  background-color: var(--muserpol-green-light);
+}
+
+/* Inputs: keep native error, read-only and disabled behavior. */
+.pf-v5-c-form-control { color: #1f2937; }
+.pf-v5-c-form-control::before,
+.pf-v5-c-form-control::after { border-radius: inherit; }
+.pf-v5-c-form-control.pf-m-disabled {
+  background-color: #e5e7eb;
+  color: #6b7280;
+}
+.pf-v5-c-form-control.pf-m-readonly { background-color: #f3f4f6; }
+.pf-v5-c-form-control input::placeholder,
+.pf-v5-c-form-control textarea::placeholder { color: #6b7280; opacity: 1; }
+.pf-v5-c-check__input,
+.pf-v5-c-radio__input { accent-color: var(--muserpol-green); }
+.pf-v5-c-form__label { color: #374151; }
+.pf-v5-c-button.pf-m-primary:not(.pf-m-danger) {
+  --pf-v5-c-button--m-primary--Color: #fff;
+}
+.pf-v5-c-button.pf-m-secondary:not(.pf-m-danger) {
+  --pf-v5-c-button--m-secondary--focus--Color: var(--muserpol-green-hover);
+  --pf-v5-c-button--m-secondary--focus--after--BorderColor: var(--muserpol-green-hover);
+  --pf-v5-c-button--m-secondary--active--Color: var(--muserpol-green-hover);
+  --pf-v5-c-button--m-secondary--active--after--BorderColor: var(--muserpol-green-hover);
+}
+.pf-v5-c-button.pf-m-primary,
+.pf-v5-c-button.pf-m-secondary { min-height: 42px; }
+
+/* Native tables/lists retain overflow, responsive layouts and action menus. */
+.pf-v5-c-table {
+  --pf-v5-c-table--BackgroundColor: #fff;
+  --pf-v5-c-table--BorderColor: var(--muserpol-border);
+}
+.pf-v5-c-table th { color: #374151; }
+.pf-v5-c-data-list {
+  --pf-v5-c-data-list__item--BackgroundColor: #fff;
+  --pf-v5-c-data-list--BorderTopColor: var(--muserpol-border);
+}
+.pf-v5-c-description-list__term { color: #374151; }
+.pf-v5-c-description-list__description { color: #1f2937; }
+.pf-v5-c-divider { --pf-v5-c-divider--BackgroundColor: var(--muserpol-border); }
+.pf-v5-c-alert { border-radius: 12px; }
+.pf-v5-c-modal-box { box-shadow: 0 12px 36px rgb(0 0 0 / 16%); }
+.pf-v5-c-modal-box__title-text { color: #1f2937; }
+.pf-v5-c-empty-state { color: #4b5563; }
+.pf-v5-c-spinner { --pf-v5-c-spinner--Color: var(--muserpol-green); }
+.pf-v5-c-jump-links {
+  --pf-v5-c-jump-links__item--m-current__link-text--Color: var(--muserpol-green-hover);
+}
+
+/* Loading precedes the React application and has its own inline dark styles. */
+html body .keycloak__loading-container {
+  color: #1f2937;
+  background-color: var(--muserpol-background);
+}
+@media (max-width: 767px) {
+  .pf-v5-c-masthead__brand img { max-width: 160px; height: 36px; }
+  .pf-v5-c-page__main-section { padding: 20px 16px; }
+  .pf-v5-c-form__actions { flex-wrap: wrap; gap: 12px; }
+}
+
+/* Keycloak 26.0.1: cosmetic single-OTP guidance, not a server-side limit.
+   Hide the entire creation action (desktop button and mobile dropdown) only
+   when the adjacent OTP list contains a real credential row. Removing the last
+   OTP makes the action visible again. Other credential types stay untouched. */
+.pf-v5-l-split:has(+ [data-testid="otp/credential-list"] [id^="cred-"])
+  .pf-v5-l-split__item:has([data-testid="otp/create"]) {
+  display: none;
+}
+
+
+/* The institutional logo is decorative navigation-wise, not a link. */
+.pf-v5-c-masthead__brand { pointer-events: none; cursor: default; }
