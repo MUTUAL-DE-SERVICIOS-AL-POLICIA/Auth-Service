@@ -2,7 +2,7 @@
 import { createServer, Server } from 'node:http';
 import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { KeycloakClient } from './keycloak-client';
-import { AuthConfig } from '../config/auth.config';
+import { WebAuthConfig } from '../config/auth.config';
 
 describe('KeycloakClient', () => {
   let server: Server;
@@ -81,7 +81,7 @@ describe('KeycloakClient', () => {
       hubClientId: 'hub',
       hubClientType: 'public',
       callbackUrl: 'http://localhost/callback',
-    } as AuthConfig);
+    } as WebAuthConfig);
   });
 
   it('uses the Hub client for refresh and classifies invalid_grant', async () => {

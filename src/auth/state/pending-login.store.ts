@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { RedisService } from '../../common/services/redis.service';
-import { AuthConfig } from '../config/auth.config';
-import { verifyBrowserBinding } from '../crypto';
+import { WebAuthConfig } from '../config/auth.config';
+import { verifyBrowserBinding } from '../utils/crypto';
 import { isPendingLogin, PendingLogin } from './pending-login';
 
 export class PendingLoginError extends Error {
@@ -16,7 +16,7 @@ const TAKE_ONCE = `local v = redis.call('GET', KEYS[1]); if v then redis.call('D
 export class PendingLoginStore {
   constructor(
     private readonly redis: RedisService,
-    private readonly config: AuthConfig,
+    private readonly config: WebAuthConfig,
   ) {}
 
   private key(state: string): string {

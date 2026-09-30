@@ -5,9 +5,9 @@ import {
   createPkce,
   createState,
   hashBrowserBinding,
-} from '../crypto';
+} from '../utils/crypto';
 import { RedisService } from '../../common/services/redis.service';
-import { AuthConfig } from '../config/auth.config';
+import { WebAuthConfig } from '../config/auth.config';
 import { PendingLoginStore } from './pending-login.store';
 
 const config = {
@@ -16,7 +16,7 @@ const config = {
   pendingTtlSeconds: 600,
   hubClientId: 'hub',
   callbackUrl: 'http://localhost/callback',
-} as AuthConfig;
+} as WebAuthConfig;
 
 describe('PendingLoginStore', () => {
   const entries = new Map<string, string>();

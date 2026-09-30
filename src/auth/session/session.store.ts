@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { createHash, randomBytes } from 'node:crypto';
-import { createSid } from '../crypto';
+import { createSid } from '../utils/crypto';
 import { RedisService } from '../../common/services/redis.service';
-import { AuthConfig } from '../config/auth.config';
+import { WebAuthConfig } from '../config/auth.config';
 import {
   assertSameIdentity,
   isWebClientContext,
@@ -76,7 +76,7 @@ export type ClientContextUpdateResult =
 export class SessionStore {
   constructor(
     private readonly redis: RedisService,
-    private readonly config: AuthConfig,
+    private readonly config: WebAuthConfig,
   ) {}
 
   private key(sid: string): string {

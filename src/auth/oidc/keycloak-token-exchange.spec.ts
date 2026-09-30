@@ -2,7 +2,7 @@
 import { createServer, Server } from 'node:http';
 import { exportJWK, generateKeyPair, KeyLike, SignJWT } from 'jose';
 import { parseClientCatalog, resolveTool } from '../config/client-catalog';
-import { AuthConfig } from '../config/auth.config';
+import { WebAuthConfig } from '../config/auth.config';
 import { KeycloakClient, OidcError } from './keycloak-client';
 
 describe('KeycloakClient token exchange', () => {
@@ -12,7 +12,7 @@ describe('KeycloakClient token exchange', () => {
   let otherPrivateKey: KeyLike;
   let publicJwk: Record<string, unknown>;
   let client: KeycloakClient;
-  let config: AuthConfig;
+  let config: WebAuthConfig;
   let tokenStatus: number;
   let tokenResponse: unknown;
   let tokenContentType: string;
@@ -159,7 +159,7 @@ describe('KeycloakClient token exchange', () => {
         Object.values(clientCatalog).includes(target as never),
       isExchangeTarget: (target: unknown) =>
         Object.values(clientCatalog).includes(target as never),
-    } as AuthConfig;
+    } as WebAuthConfig;
     client = new KeycloakClient(config);
     tokenStatus = 200;
     tokenContentType = 'application/json';

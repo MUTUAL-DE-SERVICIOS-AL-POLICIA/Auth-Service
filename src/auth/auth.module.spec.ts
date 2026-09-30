@@ -9,24 +9,24 @@ import { AuthController } from './auth.controller';
 import { RpcException } from '@nestjs/microservices';
 
 const enabled = {
-  WEB_AUTH_ENABLED: 'true',
-  ENVIRONMENT: 'dev',
-  OIDC_ISSUER: 'http://localhost:8080/realms/muserpol',
-  OIDC_HUB_CALLBACK_URL: 'http://localhost:3001/callback',
-  OIDC_HUB_POST_LOGOUT_REDIRECT_URL: 'http://localhost:3001/',
-  OIDC_HUB_TOOL_KEY: 'hub',
-  OIDC_HUB_CLIENT_ID: 'hub',
-  OIDC_HUB_CLIENT_TYPE: 'public',
-  WEB_REDIS_HOST: '127.0.0.1',
-  WEB_REDIS_PORT: '1',
-  WEB_REDIS_KEY_PREFIX: 'web',
-  WEB_REDIS_PASSWORD: 'test-redis-password',
+  enabled: true,
+  environment: 'dev',
+  issuer: 'http://localhost:8080/realms/muserpol',
+  callbackUrl: 'http://localhost:3001/callback',
+  postLogoutRedirectUrl: 'http://localhost:3001/',
+  hubToolKey: 'hub',
+  hubClientId: 'hub',
+  hubClientType: 'public',
+  redisHost: '127.0.0.1',
+  redisPort: '1',
+  redisKeyPrefix: 'web',
+  redisPassword: 'test-redis-password',
 };
 
 describe('AuthModule isolation', () => {
   it('initializes while disabled without Redis configuration', async () => {
     const module = await Test.createTestingModule({
-      imports: [AuthModule.register({ WEB_AUTH_ENABLED: 'false' })],
+      imports: [AuthModule.register({ enabled: false })],
     }).compile();
     await expect(module.init()).resolves.toBeDefined();
     const controller = module.get(AuthController);

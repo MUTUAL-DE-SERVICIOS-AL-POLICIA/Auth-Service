@@ -23,7 +23,7 @@ import {
   createPkce,
   createState,
   hashBrowserBinding,
-} from './crypto';
+} from './utils/crypto';
 import {
   asExchangeError,
   asAuthorizationError,
@@ -37,7 +37,7 @@ import {
   KeycloakClient,
   OidcError,
 } from './oidc/keycloak-client';
-import { normalizeHubReturnPath } from './return-path';
+import { normalizeHubReturnPath } from './utils/return-path';
 import {
   isWebClientContext,
   WebClientContext,
@@ -46,8 +46,8 @@ import {
 import { SessionStore, SessionWaitTimeoutError } from './session/session.store';
 import { StoreUnavailableError } from '../common/services/redis.service';
 import { PendingLoginStore } from './state/pending-login.store';
-import { AuthConfig } from './config/auth.config';
-import { AuthConfigToken } from './auth.tokens';
+import { WebAuthConfig } from './config/auth.config';
+import { WebAuthConfigToken } from './config/auth.tokens';
 import {
   UnknownWebToolError,
   ClientCatalogEntry,
@@ -71,15 +71,15 @@ type CoordinatedClientContextResponse = Omit<
 @Injectable()
 export class AuthService {
   constructor(
-    @Inject(AuthConfigToken)
-    private readonly config: AuthConfig | null,
+    @Inject(WebAuthConfigToken)
+    private readonly config: WebAuthConfig | null,
     @Optional() private readonly oidc?: KeycloakClient,
     @Optional() private readonly pending?: PendingLoginStore,
     @Optional() private readonly sessions?: SessionStore,
   ) {}
 
   private enabled(): {
-    config: AuthConfig;
+    config: WebAuthConfig;
     oidc: KeycloakClient;
     pending: PendingLoginStore;
     sessions: SessionStore;
@@ -815,7 +815,7 @@ export class AuthService {
     });
   }
 
-  private primaryIsUsable(session: Session, config: AuthConfig): boolean {
+  private primaryIsUsable(session: Session, config: WebAuthConfig): boolean {
     return (
       session.status === 'active' &&
       session.issuer === config.issuer &&
@@ -832,7 +832,7 @@ export class AuthService {
     session: Session,
     tool: string,
     target: Readonly<ClientCatalogEntry>,
-    config: AuthConfig,
+    config: WebAuthConfig,
   ): context is WebClientContext {
     return !!(
       context &&

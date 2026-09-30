@@ -1,6 +1,6 @@
 /// <reference types="jest" />
 import { KeycloakClient, OidcError } from './keycloak-client';
-import { AuthConfig } from '../config/auth.config';
+import { WebAuthConfig } from '../config/auth.config';
 import { parseClientCatalog, resolveTool } from '../config/client-catalog';
 
 const catalog = parseClientCatalog(
@@ -16,7 +16,7 @@ const config = {
   clientCatalog: catalog,
   isKnownTarget: (candidate: unknown) =>
     Object.values(catalog).includes(candidate as never),
-} as AuthConfig;
+} as WebAuthConfig;
 const target = resolveTool(catalog, 'beneficiary');
 
 function response(value: unknown, status = 200, headers: HeadersInit = {}) {

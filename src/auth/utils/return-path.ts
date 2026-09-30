@@ -1,4 +1,4 @@
-import { AuthPublicError } from './errors/auth.errors';
+import { AuthPublicError } from '../errors/auth.errors';
 
 export function normalizeHubReturnPath(value: unknown): string {
   if (

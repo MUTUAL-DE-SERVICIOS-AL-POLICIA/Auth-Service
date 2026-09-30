@@ -4,6 +4,7 @@ import { AuthModule } from './auth/auth.module';
 import { CommonModule } from './common/common.module';
 import { AuthAppMobileModule } from './auth-app-mobile/auth-app-mobile.module';
 import { AuthBcbModule } from './auth-bcb/auth-bcb.module';
+import { WebAuthEnvs } from './config';
 
 @Module({
   imports: [
@@ -11,7 +12,7 @@ import { AuthBcbModule } from './auth-bcb/auth-bcb.module';
     CommonModule,
     AuthAppMobileModule,
     AuthBcbModule,
-    AuthModule.register(),
+    AuthModule.register(WebAuthEnvs),
   ],
 })
 export class AppModule {}

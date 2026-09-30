@@ -1,11 +1,11 @@
 /// <reference types="jest" />
-import { AuthService } from './auth.service';
-import { KeycloakClient } from './oidc/keycloak-client';
-import { PendingLoginStore } from './state/pending-login.store';
-import { SessionStore } from './session/session.store';
-import { AuthConfig } from './config/auth.config';
-import { parseClientCatalog, resolveTool } from './config/client-catalog';
-import { Session } from './session/session';
+import { AuthService } from '../auth.service';
+import { KeycloakClient } from '../oidc/keycloak-client';
+import { PendingLoginStore } from '../state/pending-login.store';
+import { SessionStore } from '../session/session.store';
+import { WebAuthConfig } from '../config/auth.config';
+import { parseClientCatalog, resolveTool } from '../config/client-catalog';
+import { Session } from '../session/session';
 
 const sid = 's'.repeat(43);
 const catalog = parseClientCatalog(
@@ -34,7 +34,7 @@ const config = {
     tool === 'hub' ? hubTarget : resolveTool(catalog, tool),
   isKnownTarget: (target: unknown) =>
     target === hubTarget || Object.values(catalog).includes(target as never),
-} as AuthConfig;
+} as WebAuthConfig;
 
 it('returns only normalized permissions with session-bounded expirations', async () => {
   const now = Date.now();

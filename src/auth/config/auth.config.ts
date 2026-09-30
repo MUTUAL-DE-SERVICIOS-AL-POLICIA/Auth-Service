@@ -1,3 +1,4 @@
+import type { WebAuthEnv } from '../../config/envs';
 import {
   parseClientCatalog,
   resolveTool,
@@ -5,7 +6,7 @@ import {
   ClientCatalogEntry,
 } from './client-catalog';
 
-export interface AuthConfig {
+export interface WebAuthConfig {
   enabled: boolean;
   environment: string;
   issuer: string;
@@ -74,44 +75,28 @@ function positiveInteger(
   return number;
 }
 
-export function readAuthConfig(
-  env: NodeJS.ProcessEnv = process.env,
-): AuthConfig | null {
-  if (env.WEB_AUTH_ENABLED !== 'true') {
-    if (env.WEB_AUTH_ENABLED && env.WEB_AUTH_ENABLED !== 'false') {
-      throw new Error('WEB_AUTH_ENABLED must be true or false');
-    }
-    return null;
-  }
+export function createWebAuthConfig(env: WebAuthEnv): WebAuthConfig | null {
+  if (!env.enabled) return null;
 
-  const hubClientType = required(
-    env.OIDC_HUB_CLIENT_TYPE,
-    'OIDC_HUB_CLIENT_TYPE',
-  );
+  const hubClientType = required(env.hubClientType, 'OIDC_HUB_CLIENT_TYPE');
   if (hubClientType !== 'public' && hubClientType !== 'confidential') {
     throw new Error('OIDC_HUB_CLIENT_TYPE must be public or confidential');
   }
   if (hubClientType === 'confidential')
-    required(env.OIDC_HUB_CLIENT_SECRET, 'OIDC_HUB_CLIENT_SECRET');
-  const environment = required(env.ENVIRONMENT, 'ENVIRONMENT');
-  const redisKeyPrefix = required(
-    env.WEB_REDIS_KEY_PREFIX,
-    'WEB_REDIS_KEY_PREFIX',
-  );
+    required(env.hubClientSecret, 'OIDC_HUB_CLIENT_SECRET');
+  const environment = required(env.environment, 'ENVIRONMENT');
+  const redisKeyPrefix = required(env.redisKeyPrefix, 'WEB_REDIS_KEY_PREFIX');
   if (!/^[a-zA-Z0-9_-]+$/.test(redisKeyPrefix))
     throw new Error('WEB_REDIS_KEY_PREFIX is invalid');
-  const issuer = absoluteUrl(env.OIDC_ISSUER, 'OIDC_ISSUER');
-  const callbackUrl = absoluteUrl(
-    env.OIDC_HUB_CALLBACK_URL,
-    'OIDC_HUB_CALLBACK_URL',
-  );
+  const issuer = absoluteUrl(env.issuer, 'OIDC_ISSUER');
+  const callbackUrl = absoluteUrl(env.callbackUrl, 'OIDC_HUB_CALLBACK_URL');
   const postLogoutRedirectUrl = absoluteUrl(
-    env.OIDC_HUB_POST_LOGOUT_REDIRECT_URL,
+    env.postLogoutRedirectUrl,
     'OIDC_HUB_POST_LOGOUT_REDIRECT_URL',
     true,
   );
-  const internalBaseUrl = env.OIDC_INTERNAL_BASE_URL
-    ? absoluteUrl(env.OIDC_INTERNAL_BASE_URL, 'OIDC_INTERNAL_BASE_URL')
+  const internalBaseUrl = env.internalBaseUrl
+    ? absoluteUrl(env.internalBaseUrl, 'OIDC_INTERNAL_BASE_URL')
     : undefined;
   if (internalBaseUrl && new URL(internalBaseUrl).pathname !== '/') {
     throw new Error('OIDC_INTERNAL_BASE_URL must contain only an origin');
@@ -125,11 +110,11 @@ export function readAuthConfig(
       'OIDC_ISSUER and OIDC_HUB_CALLBACK_URL must use HTTPS in production',
     );
   }
-  const hubToolKey = required(env.OIDC_HUB_TOOL_KEY, 'OIDC_HUB_TOOL_KEY');
+  const hubToolKey = required(env.hubToolKey, 'OIDC_HUB_TOOL_KEY');
   if (!/^[a-z][a-z0-9-]{0,63}$/.test(hubToolKey))
     throw new Error('OIDC_HUB_TOOL_KEY is invalid');
-  const hubClientId = required(env.OIDC_HUB_CLIENT_ID, 'OIDC_HUB_CLIENT_ID');
-  const clientCatalog = parseClientCatalog(env.WEB_CLIENT_CATALOG, hubClientId);
+  const hubClientId = required(env.hubClientId, 'OIDC_HUB_CLIENT_ID');
+  const clientCatalog = parseClientCatalog(env.clientCatalog, hubClientId);
   if (Object.prototype.hasOwnProperty.call(clientCatalog, hubToolKey))
     throw new Error('OIDC_HUB_TOOL_KEY collides with WEB_CLIENT_CATALOG');
   const hubTarget = Object.freeze({
@@ -138,12 +123,12 @@ export function readAuthConfig(
     resourceServer: hubClientId,
   });
   const sessionTtlSeconds = positiveInteger(
-    env.WEB_SESSION_TTL_SECONDS,
+    env.sessionTtlSeconds,
     'WEB_SESSION_TTL_SECONDS',
     28800,
   );
   const sessionIdleTtlSeconds = positiveInteger(
-    env.WEB_SESSION_IDLE_TTL_SECONDS,
+    env.sessionIdleTtlSeconds,
     'WEB_SESSION_IDLE_TTL_SECONDS',
     7200,
   );
@@ -161,22 +146,22 @@ export function readAuthConfig(
     hubClientId,
     hubClientType,
     hubClientSecret:
-      hubClientType === 'confidential' ? env.OIDC_HUB_CLIENT_SECRET : undefined,
+      hubClientType === 'confidential' ? env.hubClientSecret : undefined,
     callbackUrl,
     postLogoutRedirectUrl,
-    redisHost: required(env.WEB_REDIS_HOST, 'WEB_REDIS_HOST'),
-    redisPort: positiveInteger(env.WEB_REDIS_PORT, 'WEB_REDIS_PORT', 6379),
-    redisPassword: required(env.WEB_REDIS_PASSWORD, 'WEB_REDIS_PASSWORD'),
+    redisHost: required(env.redisHost, 'WEB_REDIS_HOST'),
+    redisPort: positiveInteger(env.redisPort, 'WEB_REDIS_PORT', 6379),
+    redisPassword: required(env.redisPassword, 'WEB_REDIS_PASSWORD'),
     redisKeyPrefix,
     pendingTtlSeconds: positiveInteger(
-      env.WEB_PENDING_TTL_SECONDS,
+      env.pendingTtlSeconds,
       'WEB_PENDING_TTL_SECONDS',
       600,
     ),
     sessionTtlSeconds,
     sessionIdleTtlSeconds,
     refreshSkewSeconds: positiveInteger(
-      env.WEB_REFRESH_SKEW_SECONDS,
+      env.refreshSkewSeconds,
       'WEB_REFRESH_SKEW_SECONDS',
       120,
     ),

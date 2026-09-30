@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { createRemoteJWKSet, jwtVerify, JWTPayload } from 'jose';
 import { timingSafeEqual } from 'node:crypto';
-import { AuthConfig } from '../config/auth.config';
+import { WebAuthConfig } from '../config/auth.config';
 import { ClientCatalogEntry } from '../config/client-catalog';
 
 interface Discovery {
@@ -104,7 +104,7 @@ export class KeycloakClient {
   private jwks?: ReturnType<typeof createRemoteJWKSet>;
   private jwksUri?: string;
 
-  constructor(private readonly config: AuthConfig) {}
+  constructor(private readonly config: WebAuthConfig) {}
 
   private networkUrl(publicUrl: string): string {
     const url = new URL(publicUrl);

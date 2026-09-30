@@ -1,20 +1,20 @@
 /// <reference types="jest" />
-import { AuthPublicError } from './errors/auth.errors';
+import { AuthPublicError } from '../errors/auth.errors';
 import {
   ExchangedWebClientToken,
   KeycloakClient,
   OidcError,
-} from './oidc/keycloak-client';
-import { WebClientContext, Session } from './session/session';
+} from '../oidc/keycloak-client';
+import { WebClientContext, Session } from '../session/session';
 import {
   SessionError,
   SessionStore,
   SessionWaitTimeoutError,
-} from './session/session.store';
-import { PendingLoginStore } from './state/pending-login.store';
-import { AuthConfig } from './config/auth.config';
-import { AuthService } from './auth.service';
-import { parseClientCatalog, resolveTool } from './config/client-catalog';
+} from '../session/session.store';
+import { PendingLoginStore } from '../state/pending-login.store';
+import { WebAuthConfig } from '../config/auth.config';
+import { AuthService } from '../auth.service';
+import { parseClientCatalog, resolveTool } from '../config/client-catalog';
 
 const sid = 's'.repeat(43);
 const catalog = parseClientCatalog(
@@ -48,7 +48,7 @@ const config = {
     tool === 'hub' ? hubTarget : resolveTool(catalog, tool),
   isKnownTarget: (target: unknown) =>
     target === hubTarget || Object.values(catalog).includes(target as never),
-} as AuthConfig;
+} as WebAuthConfig;
 
 function sessionFixture(overrides: Partial<Session> = {}): Session {
   const now = Date.now();

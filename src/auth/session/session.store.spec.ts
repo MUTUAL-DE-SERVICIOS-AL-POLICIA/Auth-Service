@@ -1,6 +1,6 @@
 /// <reference types="jest" />
 import { RedisService } from '../../common/services/redis.service';
-import { AuthConfig } from '../config/auth.config';
+import { WebAuthConfig } from '../config/auth.config';
 import { assertSameIdentity, Session } from './session';
 import { SessionStore, SessionWaitTimeoutError } from './session.store';
 
@@ -11,7 +11,7 @@ const config = {
   sessionIdleTtlSeconds: 7200,
   issuer: 'http://localhost/realms/muserpol',
   hubClientId: 'hub',
-} as AuthConfig;
+} as WebAuthConfig;
 
 describe('SessionStore', () => {
   const entries = new Map<string, string>();

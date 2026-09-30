@@ -1,13 +1,13 @@
 /// <reference types="jest" />
 import { JWTPayload } from 'jose';
-import { createBrowserBinding, createState } from './crypto';
+import { createBrowserBinding, createState } from './utils/crypto';
 import { AuthPublicError } from './errors/auth.errors';
 import { KeycloakClient, OidcError } from './oidc/keycloak-client';
 import { StoreUnavailableError } from '../common/services/redis.service';
 import { SessionStore, SessionWaitTimeoutError } from './session/session.store';
 import { Session } from './session/session';
 import { PendingLoginStore } from './state/pending-login.store';
-import { AuthConfig } from './config/auth.config';
+import { WebAuthConfig } from './config/auth.config';
 import { AuthService } from './auth.service';
 
 const config = {
@@ -19,7 +19,7 @@ const config = {
   sessionTtlSeconds: 28_800,
   sessionIdleTtlSeconds: 7_200,
   refreshSkewSeconds: 120,
-} as AuthConfig;
+} as WebAuthConfig;
 
 const state = createState();
 const binding = createBrowserBinding();
