@@ -78,11 +78,6 @@ async function main() {
       'OIDC_HUB_POST_LOGOUT_REDIRECT_URL',
       'Auth-Service/.env.compose',
     ),
-    OIDC_HUB_CLIENT_TYPE: required(
-      auth,
-      'OIDC_HUB_CLIENT_TYPE',
-      'Auth-Service/.env.compose',
-    ),
     KEYCLOAK_BACKCHANNEL_LOGOUT_URL: backchannel.toString(),
   };
 

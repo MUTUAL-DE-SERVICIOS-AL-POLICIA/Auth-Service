@@ -7,12 +7,8 @@ const valid = {
   issuer: 'http://localhost:8080/realms/muserpol',
   callbackUrl: 'http://localhost:3001/callback',
   postLogoutRedirectUrl: 'http://localhost:3001/',
-  hubToolKey: 'hub',
-  hubClientId: 'hub',
-  hubClientType: 'public',
-  redisHost: 'redis',
+  hubClientSecret: 'test-secret',
   redisPassword: 'test-redis-password',
-  redisKeyPrefix: 'web',
   clientCatalog: '{}',
 };
 
@@ -61,18 +57,50 @@ describe('web auth configuration', () => {
       })?.postLogoutRedirectUrl,
     ).toBe('http://localhost:3001/signed-out/');
   });
-  it('requires a secret only for a confidential Hub', () => {
-    expect(createWebAuthConfig(valid)?.hubClientSecret).toBeUndefined();
+  it('uses fixed Hub, Redis and session defaults', () => {
+    expect(createWebAuthConfig(valid)).toMatchObject({
+      hubToolKey: 'hub',
+      hubClientId: 'hub-interface',
+      hubClientSecret: 'test-secret',
+      redisHost: 'redis',
+      redisPort: 6379,
+      redisKeyPrefix: 'muserpol-web',
+      pendingTtlSeconds: 600,
+      sessionTtlSeconds: 28_800,
+      sessionIdleTtlSeconds: 7_200,
+      refreshSkewSeconds: 120,
+    });
+  });
+  it('requires the confidential Hub secret', () => {
     expect(() =>
-      createWebAuthConfig({ ...valid, hubClientType: 'confidential' }),
+      createWebAuthConfig({ ...valid, hubClientSecret: undefined }),
     ).toThrow('OIDC_HUB_CLIENT_SECRET');
+  });
+  it('accepts explicit infrastructure and timeout overrides', () => {
     expect(
       createWebAuthConfig({
         ...valid,
-        hubClientType: 'confidential',
-        hubClientSecret: 'test-secret',
-      })?.hubClientSecret,
-    ).toBe('test-secret');
+        hubToolKey: 'portal',
+        hubClientId: 'portal-interface',
+        redisHost: 'external-redis',
+        redisPort: '6380',
+        redisKeyPrefix: 'custom-web',
+        pendingTtlSeconds: '300',
+        sessionTtlSeconds: '3600',
+        sessionIdleTtlSeconds: '900',
+        refreshSkewSeconds: '90',
+      }),
+    ).toMatchObject({
+      hubToolKey: 'portal',
+      hubClientId: 'portal-interface',
+      redisHost: 'external-redis',
+      redisPort: 6380,
+      redisKeyPrefix: 'custom-web',
+      pendingTtlSeconds: 300,
+      sessionTtlSeconds: 3600,
+      sessionIdleTtlSeconds: 900,
+      refreshSkewSeconds: 90,
+    });
   });
   it('rejects invalid URLs without echoing input secrets', () => {
     const secret = 'do-not-print-this';

@@ -396,8 +396,7 @@ export class KeycloakClient {
       code,
       code_verifier: verifier,
     });
-    if (this.config.hubClientType === 'confidential')
-      body.set('client_secret', this.config.hubClientSecret!);
+    body.set('client_secret', this.config.hubClientSecret);
     return this.parseTokenResponse(
       await this.tokenEndpointRequest(
         this.networkUrl(metadata.token_endpoint),
@@ -413,8 +412,7 @@ export class KeycloakClient {
       client_id: this.config.hubClientId,
       refresh_token: refreshToken,
     });
-    if (this.config.hubClientType === 'confidential')
-      body.set('client_secret', this.config.hubClientSecret!);
+    body.set('client_secret', this.config.hubClientSecret);
     return this.parseTokenResponse(
       await this.tokenEndpointRequest(
         this.networkUrl(metadata.token_endpoint),
@@ -431,8 +429,7 @@ export class KeycloakClient {
       token_type_hint: 'refresh_token',
       client_id: this.config.hubClientId,
     });
-    if (this.config.hubClientType === 'confidential')
-      body.set('client_secret', this.config.hubClientSecret!);
+    body.set('client_secret', this.config.hubClientSecret);
     try {
       const response = await fetch(
         this.networkUrl(metadata.revocation_endpoint),
@@ -481,7 +478,6 @@ export class KeycloakClient {
     input: ExchangeWebClientTokenRequest,
   ): Promise<ExchangedWebClientToken> {
     if (
-      this.config.hubClientType !== 'confidential' ||
       !this.config.hubClientSecret ||
       !input.subjectToken ||
       !input.expectedSubject ||

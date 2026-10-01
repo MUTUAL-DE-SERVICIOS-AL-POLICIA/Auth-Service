@@ -13,8 +13,7 @@ export interface WebAuthConfig {
   internalBaseUrl?: string;
   hubToolKey: string;
   hubClientId: string;
-  hubClientType: 'public' | 'confidential';
-  hubClientSecret?: string;
+  hubClientSecret: string;
   callbackUrl: string;
   postLogoutRedirectUrl: string;
   redisHost: string;
@@ -78,14 +77,12 @@ function positiveInteger(
 export function createWebAuthConfig(env: WebAuthEnv): WebAuthConfig | null {
   if (!env.enabled) return null;
 
-  const hubClientType = required(env.hubClientType, 'OIDC_HUB_CLIENT_TYPE');
-  if (hubClientType !== 'public' && hubClientType !== 'confidential') {
-    throw new Error('OIDC_HUB_CLIENT_TYPE must be public or confidential');
-  }
-  if (hubClientType === 'confidential')
-    required(env.hubClientSecret, 'OIDC_HUB_CLIENT_SECRET');
+  const hubClientSecret = required(
+    env.hubClientSecret,
+    'OIDC_HUB_CLIENT_SECRET',
+  );
   const environment = required(env.environment, 'ENVIRONMENT');
-  const redisKeyPrefix = required(env.redisKeyPrefix, 'WEB_REDIS_KEY_PREFIX');
+  const redisKeyPrefix = env.redisKeyPrefix?.trim() || 'muserpol-web';
   if (!/^[a-zA-Z0-9_-]+$/.test(redisKeyPrefix))
     throw new Error('WEB_REDIS_KEY_PREFIX is invalid');
   const issuer = absoluteUrl(env.issuer, 'OIDC_ISSUER');
@@ -110,10 +107,10 @@ export function createWebAuthConfig(env: WebAuthEnv): WebAuthConfig | null {
       'OIDC_ISSUER and OIDC_HUB_CALLBACK_URL must use HTTPS in production',
     );
   }
-  const hubToolKey = required(env.hubToolKey, 'OIDC_HUB_TOOL_KEY');
+  const hubToolKey = env.hubToolKey?.trim() || 'hub';
   if (!/^[a-z][a-z0-9-]{0,63}$/.test(hubToolKey))
     throw new Error('OIDC_HUB_TOOL_KEY is invalid');
-  const hubClientId = required(env.hubClientId, 'OIDC_HUB_CLIENT_ID');
+  const hubClientId = env.hubClientId?.trim() || 'hub-interface';
   const clientCatalog = parseClientCatalog(env.clientCatalog, hubClientId);
   if (Object.prototype.hasOwnProperty.call(clientCatalog, hubToolKey))
     throw new Error('OIDC_HUB_TOOL_KEY collides with WEB_CLIENT_CATALOG');
@@ -144,12 +141,10 @@ export function createWebAuthConfig(env: WebAuthEnv): WebAuthConfig | null {
     internalBaseUrl,
     hubToolKey,
     hubClientId,
-    hubClientType,
-    hubClientSecret:
-      hubClientType === 'confidential' ? env.hubClientSecret : undefined,
+    hubClientSecret,
     callbackUrl,
     postLogoutRedirectUrl,
-    redisHost: required(env.redisHost, 'WEB_REDIS_HOST'),
+    redisHost: env.redisHost?.trim() || 'redis',
     redisPort: positiveInteger(env.redisPort, 'WEB_REDIS_PORT', 6379),
     redisPassword: required(env.redisPassword, 'WEB_REDIS_PASSWORD'),
     redisKeyPrefix,

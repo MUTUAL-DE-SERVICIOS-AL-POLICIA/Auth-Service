@@ -16,7 +16,7 @@ const enabled = {
   postLogoutRedirectUrl: 'http://localhost:3001/',
   hubToolKey: 'hub',
   hubClientId: 'hub',
-  hubClientType: 'public',
+  hubClientSecret: 'hub-secret-for-test',
   redisHost: '127.0.0.1',
   redisPort: '1',
   redisKeyPrefix: 'web',

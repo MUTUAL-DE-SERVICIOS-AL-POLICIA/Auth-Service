@@ -137,12 +137,8 @@ async function main() {
       const callback = required('OIDC_HUB_CALLBACK_URL');
       const postLogout = required('OIDC_HUB_POST_LOGOUT_REDIRECT_URL');
       const backchannel = required('KEYCLOAK_BACKCHANNEL_LOGOUT_URL');
-      const clientType = required('OIDC_HUB_CLIENT_TYPE');
-      if (!['public', 'confidential'].includes(clientType)) {
-        throw new Error('OIDC_HUB_CLIENT_TYPE must be public or confidential');
-      }
-      if (client.publicClient !== (clientType === 'public')) {
-        problems.push('hub-interface has an unexpected client type');
+      if (client.publicClient !== false) {
+        problems.push('hub-interface must be confidential');
       }
       const webOrigins = Array.isArray(client.webOrigins)
         ? client.webOrigins

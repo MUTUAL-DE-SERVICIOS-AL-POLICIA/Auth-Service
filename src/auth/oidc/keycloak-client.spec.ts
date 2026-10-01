@@ -79,7 +79,7 @@ describe('KeycloakClient', () => {
     client = new KeycloakClient({
       issuer,
       hubClientId: 'hub',
-      hubClientType: 'public',
+      hubClientSecret: 'hub-secret-for-test',
       callbackUrl: 'http://localhost/callback',
     } as WebAuthConfig);
   });

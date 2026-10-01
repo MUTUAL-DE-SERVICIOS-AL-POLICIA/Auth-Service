@@ -147,7 +147,6 @@ describe('KeycloakClient token exchange', () => {
       issuer,
       hubToolKey: 'hub',
       hubClientId: 'hub-interface',
-      hubClientType: 'confidential',
       hubClientSecret: 'hub-secret-for-test',
       callbackUrl: 'http://localhost/callback',
       clientCatalog,

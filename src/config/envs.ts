@@ -12,7 +12,6 @@ interface EnvVars {
   OIDC_INTERNAL_BASE_URL?: string;
   OIDC_HUB_TOOL_KEY?: string;
   OIDC_HUB_CLIENT_ID?: string;
-  OIDC_HUB_CLIENT_TYPE?: string;
   OIDC_HUB_CLIENT_SECRET?: string;
   OIDC_HUB_CALLBACK_URL?: string;
   OIDC_HUB_POST_LOGOUT_REDIRECT_URL?: string;
@@ -40,7 +39,6 @@ const envsSchema = joi
     OIDC_INTERNAL_BASE_URL: joi.string().allow('').optional(),
     OIDC_HUB_TOOL_KEY: joi.string().allow('').optional(),
     OIDC_HUB_CLIENT_ID: joi.string().allow('').optional(),
-    OIDC_HUB_CLIENT_TYPE: joi.string().allow('').optional(),
     OIDC_HUB_CLIENT_SECRET: joi.string().allow('').optional(),
     OIDC_HUB_CALLBACK_URL: joi.string().allow('').optional(),
     OIDC_HUB_POST_LOGOUT_REDIRECT_URL: joi.string().allow('').optional(),
@@ -88,7 +86,6 @@ export interface WebAuthEnv {
   internalBaseUrl?: string;
   hubToolKey?: string;
   hubClientId?: string;
-  hubClientType?: string;
   hubClientSecret?: string;
   callbackUrl?: string;
   postLogoutRedirectUrl?: string;
@@ -110,7 +107,6 @@ export const WebAuthEnvs: Readonly<WebAuthEnv> = Object.freeze({
   internalBaseUrl: envVars.OIDC_INTERNAL_BASE_URL,
   hubToolKey: envVars.OIDC_HUB_TOOL_KEY,
   hubClientId: envVars.OIDC_HUB_CLIENT_ID,
-  hubClientType: envVars.OIDC_HUB_CLIENT_TYPE,
   hubClientSecret: envVars.OIDC_HUB_CLIENT_SECRET,
   callbackUrl: envVars.OIDC_HUB_CALLBACK_URL,
   postLogoutRedirectUrl: envVars.OIDC_HUB_POST_LOGOUT_REDIRECT_URL,
