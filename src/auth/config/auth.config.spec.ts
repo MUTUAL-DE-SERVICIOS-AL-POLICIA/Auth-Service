@@ -116,10 +116,22 @@ describe('web auth configuration', () => {
       }
     }
   });
-  it('enforces HTTPS in production', () => {
+  it('enforces HTTPS in production unless insecure HTTP is explicitly allowed', () => {
     expect(() =>
       createWebAuthConfig({ ...valid, environment: 'prod' }),
     ).toThrow('HTTPS');
+
+    expect(
+      createWebAuthConfig({
+        ...valid,
+        environment: 'prod',
+        allowInsecureHttp: true,
+      }),
+    ).toMatchObject({
+      environment: 'prod',
+      issuer: valid.issuer,
+      callbackUrl: valid.callbackUrl,
+    });
   });
   it('uses the approved refresh margin and session durations', () => {
     expect(createWebAuthConfig(valid)).toMatchObject({

@@ -30,3 +30,28 @@ new MutationObserver(removeBrandLink).observe(document.body, {
   attributes: true,
   attributeFilter: ["href"],
 });
+
+// Identify non-production environments without changing account behavior.
+const environmentLabels = {
+  dev: "VERSIÓN DE DESARROLLO",
+  test: "VERSIÓN DE PRUEBAS",
+};
+const environmentLabel = environmentLabels[window.MUSERPOL_DEPLOY_ENV];
+const showEnvironmentBadge = () => {
+  if (!environmentLabel || document.querySelector(".muserpol-environment-badge")) {
+    return;
+  }
+
+  const masthead = document.querySelector(".pf-v5-c-masthead");
+  if (!masthead) return;
+
+  const badge = document.createElement("span");
+  badge.className = "muserpol-environment-badge";
+  badge.textContent = environmentLabel;
+  masthead.appendChild(badge);
+};
+showEnvironmentBadge();
+new MutationObserver(showEnvironmentBadge).observe(document.body, {
+  childList: true,
+  subtree: true,
+});

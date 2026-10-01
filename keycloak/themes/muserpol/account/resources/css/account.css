@@ -235,3 +235,17 @@ html body .keycloak__loading-container {
 
 /* The institutional logo is decorative navigation-wise, not a link. */
 .pf-v5-c-masthead__brand { pointer-events: none; cursor: default; }
+
+/* Visible environment marker for development and test deployments. */
+.muserpol-environment-badge {
+  align-self: center;
+  margin-inline: 12px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  background: #ef3340;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}

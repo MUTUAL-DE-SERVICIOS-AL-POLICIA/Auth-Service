@@ -19,4 +19,20 @@ for variable in $required_variables; do
   fi
 done
 
+# El tema utiliza el mismo entorno general del launcher. Solo se publican los
+# valores conocidos y en produccion la etiqueta permanece oculta.
+case "${ENVIRONMENT:-prod}" in
+  dev|test|prod)
+    theme_environment="${ENVIRONMENT:-prod}"
+    ;;
+  *)
+    echo "ENVIRONMENT must be one of: dev, test, prod" >&2
+    exit 1
+    ;;
+esac
+
+environment_script="window.MUSERPOL_DEPLOY_ENV = '${theme_environment}';"
+printf '%s\n' "$environment_script" > /opt/keycloak/themes/muserpol/login/resources/js/environment.js
+printf '%s\n' "$environment_script" > /opt/keycloak/themes/muserpol/account/resources/js/environment.js
+
 exec /opt/keycloak/bin/kc.sh "$@"

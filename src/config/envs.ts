@@ -7,6 +7,7 @@ interface EnvVars {
   BCB_JWT_PRIVATE_KEY?: string;
   BCB_JWT_PUBLIC_KEY?: string;
   WEB_AUTH_ENABLED: boolean;
+  WEB_AUTH_ALLOW_INSECURE_HTTP: boolean;
   ENVIRONMENT?: string;
   OIDC_ISSUER?: string;
   OIDC_INTERNAL_BASE_URL?: string;
@@ -34,6 +35,7 @@ const envsSchema = joi
     BCB_JWT_PRIVATE_KEY: joi.string().allow('').optional(),
     BCB_JWT_PUBLIC_KEY: joi.string().allow('').optional(),
     WEB_AUTH_ENABLED: joi.boolean().default(false),
+    WEB_AUTH_ALLOW_INSECURE_HTTP: joi.boolean().default(false),
     ENVIRONMENT: joi.string().allow('').optional(),
     OIDC_ISSUER: joi.string().allow('').optional(),
     OIDC_INTERNAL_BASE_URL: joi.string().allow('').optional(),
@@ -81,6 +83,7 @@ export const BcbJwtEnvs = {
 
 export interface WebAuthEnv {
   enabled: boolean;
+  allowInsecureHttp?: boolean;
   environment?: string;
   issuer?: string;
   internalBaseUrl?: string;
@@ -102,6 +105,7 @@ export interface WebAuthEnv {
 
 export const WebAuthEnvs: Readonly<WebAuthEnv> = Object.freeze({
   enabled: envVars.WEB_AUTH_ENABLED,
+  allowInsecureHttp: envVars.WEB_AUTH_ALLOW_INSECURE_HTTP,
   environment: envVars.ENVIRONMENT,
   issuer: envVars.OIDC_ISSUER,
   internalBaseUrl: envVars.OIDC_INTERNAL_BASE_URL,

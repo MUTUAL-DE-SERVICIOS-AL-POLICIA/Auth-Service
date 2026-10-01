@@ -82,6 +82,19 @@ body {
 }
 .kc-brand { display: grid; place-items: center; }
 .kc-logo { width: 76%; max-width: 320px; height: auto; }
+.kc-environment-badge {
+  display: block;
+  width: fit-content;
+  margin: 4px auto 8px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  background: #ef3340;
+  color: var(--white);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+}
 .kc-title {
   margin: 4px 0 4px;
   font-weight: 800;

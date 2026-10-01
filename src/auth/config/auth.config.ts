@@ -100,11 +100,12 @@ export function createWebAuthConfig(env: WebAuthEnv): WebAuthConfig | null {
   }
   if (
     environment === 'prod' &&
+    !env.allowInsecureHttp &&
     (new URL(issuer).protocol !== 'https:' ||
       new URL(callbackUrl).protocol !== 'https:')
   ) {
     throw new Error(
-      'OIDC_ISSUER and OIDC_HUB_CALLBACK_URL must use HTTPS in production',
+      'OIDC_ISSUER and OIDC_HUB_CALLBACK_URL must use HTTPS in production unless WEB_AUTH_ALLOW_INSECURE_HTTP=true',
     );
   }
   const hubToolKey = env.hubToolKey?.trim() || 'hub';

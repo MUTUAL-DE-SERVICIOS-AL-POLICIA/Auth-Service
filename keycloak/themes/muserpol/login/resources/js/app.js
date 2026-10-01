@@ -22,3 +22,16 @@ if (toggle) {
     box.style.display = box.style.display === "none" ? "block" : "none";
   });
 }
+
+const environmentLabels = {
+  dev: "VERSIÓN DE DESARROLLO",
+  test: "VERSIÓN DE PRUEBAS",
+};
+const environmentLabel = environmentLabels[window.MUSERPOL_DEPLOY_ENV];
+const brand = document.querySelector(".kc-brand");
+if (environmentLabel && brand) {
+  const badge = document.createElement("span");
+  badge.className = "kc-environment-badge";
+  badge.textContent = environmentLabel;
+  brand.insertAdjacentElement("afterend", badge);
+}

@@ -88,6 +88,7 @@
   </div>
 
   <#nested "scripts">
+  <script defer src="${url.resourcesPath}/js/environment.js"></script>
   <script defer src="${url.resourcesPath}/js/app.js"></script>
 </body>
 </html>
