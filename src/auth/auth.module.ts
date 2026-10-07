@@ -1,4 +1,5 @@
 import { DynamicModule, Module } from '@nestjs/common';
+import { JwtModule } from '@nestjs/jwt';
 import { createWebAuthConfig, WebAuthConfig } from './config/auth.config';
 import { KeycloakClient } from './oidc/keycloak-client';
 import { RedisService } from '../common/services/redis.service';
@@ -8,6 +9,9 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { WebAuthConfigToken } from './config/auth.tokens';
 import type { WebAuthEnv } from '../config/envs';
+import { LegacyAuthController } from './legacy/legacy-auth.controller';
+import { LegacyAuthService } from './legacy/legacy-auth.service';
+import { LegacyAuthEnvs } from '../config/envs';
 
 @Module({})
 export class AuthModule {
@@ -16,16 +20,25 @@ export class AuthModule {
     const common = [
       { provide: WebAuthConfigToken, useValue: config },
       AuthService,
+      LegacyAuthService,
+    ];
+    const imports = [
+      JwtModule.register({
+        secret: LegacyAuthEnvs.jwtSecret,
+        signOptions: { expiresIn: '4h' },
+      }),
     ];
     if (!config)
       return {
         module: AuthModule,
-        controllers: [AuthController],
+        controllers: [AuthController, LegacyAuthController],
+        imports,
         providers: common,
       };
     return {
       module: AuthModule,
-      controllers: [AuthController],
+      controllers: [AuthController, LegacyAuthController],
+      imports,
       providers: [
         ...common,
         {

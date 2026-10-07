@@ -33,6 +33,7 @@
     "joi": "18.2.3",
     "jose": "5.10.0",
     "jsonwebtoken": "9.0.3",
+    "ldapts": "9.0.0",
     "nats": "2.29.3",
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2"
