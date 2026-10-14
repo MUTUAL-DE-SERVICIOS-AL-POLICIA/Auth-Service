@@ -1,54 +1,45 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { Client } from 'ldapts';
-import { LdapEnvs } from 'src/config';
+import { LegacyAuthEnvs } from 'src/config';
 
 @Injectable()
 export class LdapService {
-
-  private createClient(): Client {
-    return new Client({
-      url: `ldap://${LdapEnvs.ldapHost}:${LdapEnvs.ldapPort}`,
+  async findUser(
+    username: string,
+    password: string,
+  ): Promise<{
+    username: string;
+    names: string;
+    surnames: string;
+  }> {
+    const client = new Client({
+      url: `ldap://${LegacyAuthEnvs.ldapHost}:${LegacyAuthEnvs.ldapPort}`,
       connectTimeout: 5000,
     });
-  }
-
-  async findUser(username: string, password: string): Promise<any> {
-
-    const client = await this.createClient();
 
     try {
-      const bindDN = `${LdapEnvs.ldapAdminPrefix}=${LdapEnvs.ldapAdminUsername},${LdapEnvs.ldapBaseDN}`;
-      await client.bind(bindDN, LdapEnvs.ldapAdminPassword);
-
-      const { searchEntries } = await client.search(LdapEnvs.ldapBaseDN, {
+      const bindDn = `${LegacyAuthEnvs.ldapAdminPrefix}=${LegacyAuthEnvs.ldapAdminUsername},${LegacyAuthEnvs.ldapBaseDn}`;
+      await client.bind(bindDn, LegacyAuthEnvs.ldapAdminPassword);
+      const { searchEntries } = await client.search(LegacyAuthEnvs.ldapBaseDn, {
         scope: 'sub',
         filter: `(uid=${username})`,
-        attributes: ['uid', 'cn', 'givenName', 'sn', 'mail', 'title'],
+        attributes: ['uid', 'givenName', 'sn'],
       });
-
       if (searchEntries.length === 0) {
         throw new UnauthorizedException('Usuario no encontrado');
       }
-
-      const userDN = searchEntries[0];
-
-      await client.bind(userDN.dn, password);
-
+      const user = searchEntries[0];
+      await client.bind(user.dn, password);
       return {
-        username: userDN.uid,
-        fullname: userDN.cn,
-        names: userDN.givenName,
-        surnames: userDN.sn,
-        mail: userDN.mail,
-        title: userDN.title,
-        error: false,
+        username: String(user.uid),
+        names: String(user.givenName ?? ''),
+        surnames: String(user.sn ?? ''),
       };
-
     } catch (error) {
       if (error instanceof UnauthorizedException) throw error;
       throw new UnauthorizedException('Credenciales incorrectas');
     } finally {
-      await client.unbind();
+      await client.unbind().catch(() => undefined);
     }
   }
 }
