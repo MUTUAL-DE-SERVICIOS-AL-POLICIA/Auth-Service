@@ -294,13 +294,10 @@ input.field-error{
   line-height: 1.5;
   text-align: center;
 }
-.kc-help a,
-#kc-totp-secret-key-toggle { color: var(--green-600); text-underline-offset: 3px; }
-.kc-help a:hover,
-#kc-totp-secret-key-toggle:hover { color: var(--green-700); }
+.kc-help a { color: var(--green-600); text-underline-offset: 3px; }
+.kc-help a:hover { color: var(--green-700); }
 .kc-help-note { font-size: 12px; color: var(--text-700); }
-.kc-help a:focus-visible,
-#kc-totp-secret-key-toggle:focus-visible {
+.kc-help a:focus-visible {
   outline: 2px solid var(--green-600);
   outline-offset: 4px;
   border-radius: 3px;

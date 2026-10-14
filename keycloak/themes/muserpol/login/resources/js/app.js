@@ -14,15 +14,6 @@ if (pwd) {
   });
 }
 
-const toggle = document.getElementById("kc-totp-secret-key-toggle");
-if (toggle) {
-  toggle.addEventListener("click", (e) => {
-    e.preventDefault();
-    const box = document.getElementById("kc-totp-secret-key");
-    box.style.display = box.style.display === "none" ? "block" : "none";
-  });
-}
-
 const environmentLabels = {
   dev: "VERSIÓN DE DESARROLLO",
   test: "VERSIÓN DE PRUEBAS",

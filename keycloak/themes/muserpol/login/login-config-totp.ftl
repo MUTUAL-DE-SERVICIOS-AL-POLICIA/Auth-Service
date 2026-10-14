@@ -14,11 +14,9 @@
       <li>
         <p>${msg("loginTotpStep2")}</p>
         <img id="kc-totp-secret-qr-code" src="data:image/png;base64, ${totp.totpSecretQrCode}" alt="Figure: Barcode"/>
-        <br/>
-        <a href="#" id="kc-totp-secret-key-toggle">${msg("loginTotpUnableToScan")}</a>
-        <div id="kc-totp-secret-key" style="display:none">
+        <div id="kc-totp-secret-key">
           <p style="font-size:0.85rem;color:#555;margin-bottom:4px;">
-            Si no puedes escanear el código QR, ingresa manualmente esta clave en tu aplicación FreeOTP
+            También puedes ingresar manualmente esta clave en tu aplicación FreeOTP
             seleccionando la opción <strong>"Ingresar clave manualmente"</strong>:
           </p>
           <span style="display:block;font-family:monospace;font-size:1.1rem;letter-spacing:2px;background:#f4f4f4;padding:8px 12px;border-radius:6px;word-break:break-all;">${totp.totpSecretEncoded}</span>
