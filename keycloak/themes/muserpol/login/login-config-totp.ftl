@@ -20,14 +20,6 @@
             seleccionando la opción <strong>"Ingresar clave manualmente"</strong>:
           </p>
           <span style="display:block;font-family:monospace;font-size:1.1rem;letter-spacing:2px;background:#f4f4f4;padding:8px 12px;border-radius:6px;word-break:break-all;">${totp.totpSecretEncoded}</span>
-          <#assign manualHelpUrl = (properties.freeOtpManualHelpUrl!'')?trim>
-          <#if manualHelpUrl?starts_with('https://')>
-            <p class="kc-help">
-              <a href="${manualHelpUrl}" target="_blank" rel="noopener noreferrer">
-                Ver guía para ingresar la clave manualmente
-              </a>
-            </p>
-          </#if>
         </div>
       </li>
 
