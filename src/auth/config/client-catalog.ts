@@ -10,7 +10,7 @@ export type ClientCatalog = Readonly<
 
 export class ClientCatalogConfigError extends Error {
   constructor() {
-    super('WEB_CLIENT_CATALOG is invalid');
+    super('AUTH_TOOL_CLIENTS is invalid');
     this.name = 'ClientCatalogConfigError';
   }
 }

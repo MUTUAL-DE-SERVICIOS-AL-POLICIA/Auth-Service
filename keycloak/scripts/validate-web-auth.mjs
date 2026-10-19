@@ -134,8 +134,8 @@ async function main() {
     }
 
     if (expected.clientId === 'hub-interface') {
-      const callback = required('OIDC_HUB_CALLBACK_URL');
-      const postLogout = required('OIDC_HUB_POST_LOGOUT_REDIRECT_URL');
+      const callback = required('EXPECTED_HUB_CALLBACK_URL');
+      const postLogout = required('EXPECTED_HUB_POST_LOGOUT_URL');
       const backchannel = required('KEYCLOAK_BACKCHANNEL_LOGOUT_URL');
       if (client.publicClient !== false) {
         problems.push('hub-interface must be confidential');

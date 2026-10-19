@@ -38,13 +38,39 @@ function required(values, key, source) {
   return value;
 }
 
+function originWithPort(origin, port) {
+  const url = new URL(origin);
+  if (
+    !['http:', 'https:'].includes(url.protocol) ||
+    url.port ||
+    url.pathname !== '/' ||
+    url.search ||
+    url.hash ||
+    url.username ||
+    url.password
+  ) {
+    throw new Error('AUTH_PUBLIC_ORIGIN must not contain a port or path');
+  }
+  url.port = port;
+  return url.origin;
+}
+
 async function main() {
   const root = await loadEnvironment('.env');
   const auth = await loadEnvironment('Auth-Service/.env.compose');
 
-  const callback = new URL(
-    required(auth, 'OIDC_HUB_CALLBACK_URL', 'Auth-Service/.env.compose'),
+  const publicOrigin = required(
+    auth,
+    'AUTH_PUBLIC_ORIGIN',
+    'Auth-Service/.env.compose',
   );
+  const keycloakOrigin = originWithPort(
+    publicOrigin,
+    required(root, 'KEYCLOAK_PORT', '.env'),
+  );
+  const hubOrigin = originWithPort(publicOrigin, auth.AUTH_HUB_PORT || '3001');
+  const callbackPath = auth.CALLBACK_PATH || '/api/auth/callback';
+  const callback = new URL(callbackPath, `${hubOrigin}/`);
   const gatewayPort = required(root, 'CLIENT_GATEWAY_PORT', '.env');
   const gatewayHost = callback.hostname.includes(':')
     ? `[${callback.hostname}]`
@@ -56,11 +82,7 @@ async function main() {
 
   const validationEnvironment = {
     ...process.env,
-    KEYCLOAK_ADMIN_URL: required(
-      auth,
-      'KC_HOSTNAME',
-      'Auth-Service/.env.compose',
-    ).replace(/\/$/u, ''),
+    KEYCLOAK_ADMIN_URL: (auth.KC_HOSTNAME || keycloakOrigin).replace(/\/$/u, ''),
     KEYCLOAK_ADMIN_REALM: 'master',
     KEYCLOAK_ADMIN_USERNAME: required(
       auth,
@@ -72,12 +94,8 @@ async function main() {
       'KC_BOOTSTRAP_ADMIN_PASSWORD',
       'Auth-Service/.env.compose',
     ),
-    OIDC_HUB_CALLBACK_URL: callback.toString(),
-    OIDC_HUB_POST_LOGOUT_REDIRECT_URL: required(
-      auth,
-      'OIDC_HUB_POST_LOGOUT_REDIRECT_URL',
-      'Auth-Service/.env.compose',
-    ),
+    EXPECTED_HUB_CALLBACK_URL: callback.toString(),
+    EXPECTED_HUB_POST_LOGOUT_URL: `${hubOrigin}/`,
     KEYCLOAK_BACKCHANNEL_LOGOUT_URL: backchannel.toString(),
   };
 

@@ -6,7 +6,7 @@ Microservicio de autenticación de MUSERPOL. Expone contratos NATS y mantiene se
 - autenticación de App Mobile;
 - firma y validación JWT RS256 para la integración BCB.
 
-La autenticación web heredada basada en cookie `msp`, LDAP y JWT simétrico fue retirada. Este servicio ya no requiere una base de datos propia para autenticar usuarios web.
+La plataforma web usa SID/OIDC/UMA. Los contratos LDAP y JWT simétrico se conservan exclusivamente para la compatibilidad de importación de documentos de PVT-BE. Auth-Service no requiere tablas propias.
 
 ## Estructura
 
@@ -28,7 +28,7 @@ Use `.env.compose.template` como referencia. Las variables se agrupan por respon
 - `NATS_SERVERS` para comunicación interna;
 - `USER_TEST_DEVICE` y `USER_TEST_ACCESS` para App Mobile;
 - `BCB_JWT_PRIVATE_KEY` y `BCB_JWT_PUBLIC_KEY` para BCB;
-- `OIDC_*`, `WEB_CLIENT_CATALOG` y `WEB_REDIS_*` para autenticación web.
+- `AUTH_PUBLIC_ORIGIN`, `OIDC_*`, `AUTH_TOOL_CLIENTS` y `WEB_REDIS_*` para autenticación web.
 
 Los archivos `.env` reales no deben versionarse.
 

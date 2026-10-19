@@ -62,6 +62,24 @@ function required(value: string | undefined, name: string): string {
   return value.trim();
 }
 
+function path(
+  value: string | undefined,
+  name: string,
+  fallback: string,
+): string {
+  const normalized = value?.trim() || fallback;
+  if (!normalized.startsWith('/') || normalized.startsWith('//'))
+    throw new Error(`${name} must be an absolute path`);
+  return normalized;
+}
+
+function originWithPort(origin: string, port: string | undefined): string {
+  const url = new URL(origin);
+  const normalizedPort = port?.trim();
+  if (normalizedPort) url.port = normalizedPort;
+  return url.origin;
+}
+
 function positiveInteger(
   value: string | undefined,
   name: string,
@@ -85,13 +103,26 @@ export function createWebAuthConfig(env: WebAuthEnv): WebAuthConfig | null {
   const redisKeyPrefix = env.redisKeyPrefix?.trim() || 'muserpol-web';
   if (!/^[a-zA-Z0-9_-]+$/.test(redisKeyPrefix))
     throw new Error('WEB_REDIS_KEY_PREFIX is invalid');
-  const issuer = absoluteUrl(env.issuer, 'OIDC_ISSUER');
-  const callbackUrl = absoluteUrl(env.callbackUrl, 'OIDC_HUB_CALLBACK_URL');
-  const postLogoutRedirectUrl = absoluteUrl(
-    env.postLogoutRedirectUrl,
-    'OIDC_HUB_POST_LOGOUT_REDIRECT_URL',
-    true,
+  const publicOrigin = absoluteUrl(env.publicOrigin, 'AUTH_PUBLIC_ORIGIN');
+  if (
+    new URL(publicOrigin).pathname !== '/' ||
+    new URL(publicOrigin).port !== ''
+  )
+    throw new Error('AUTH_PUBLIC_ORIGIN must not contain a port or path');
+  const keycloakOrigin = env.keycloakHostname
+    ? absoluteUrl(env.keycloakHostname, 'KC_HOSTNAME')
+    : originWithPort(publicOrigin, env.keycloakPort || '8080');
+  if (new URL(keycloakOrigin).pathname !== '/')
+    throw new Error('KC_HOSTNAME must contain only an origin');
+  const hubOrigin = originWithPort(publicOrigin, env.hubPort || '3001');
+  const callbackPath = path(
+    env.callbackPath,
+    'CALLBACK_PATH',
+    '/api/auth/callback',
   );
+  const issuer = `${keycloakOrigin}/realms/muserpol`;
+  const callbackUrl = new URL(callbackPath, `${hubOrigin}/`).toString();
+  const postLogoutRedirectUrl = `${hubOrigin}/`;
   const internalBaseUrl = env.internalBaseUrl
     ? absoluteUrl(env.internalBaseUrl, 'OIDC_INTERNAL_BASE_URL')
     : undefined;
@@ -105,16 +136,16 @@ export function createWebAuthConfig(env: WebAuthEnv): WebAuthConfig | null {
       new URL(callbackUrl).protocol !== 'https:')
   ) {
     throw new Error(
-      'OIDC_ISSUER and OIDC_HUB_CALLBACK_URL must use HTTPS in production unless WEB_AUTH_ALLOW_INSECURE_HTTP=true',
+      'AUTH_PUBLIC_ORIGIN must use HTTPS in production unless WEB_AUTH_ALLOW_INSECURE_HTTP=true',
     );
   }
   const hubToolKey = env.hubToolKey?.trim() || 'hub';
   if (!/^[a-z][a-z0-9-]{0,63}$/.test(hubToolKey))
     throw new Error('OIDC_HUB_TOOL_KEY is invalid');
   const hubClientId = env.hubClientId?.trim() || 'hub-interface';
-  const clientCatalog = parseClientCatalog(env.clientCatalog, hubClientId);
+  const clientCatalog = parseClientCatalog(env.toolClients, hubClientId);
   if (Object.prototype.hasOwnProperty.call(clientCatalog, hubToolKey))
-    throw new Error('OIDC_HUB_TOOL_KEY collides with WEB_CLIENT_CATALOG');
+    throw new Error('OIDC_HUB_TOOL_KEY collides with AUTH_TOOL_CLIENTS');
   const hubTarget = Object.freeze({
     clientId: hubClientId,
     audience: hubClientId,

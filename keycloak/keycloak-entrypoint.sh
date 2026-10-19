@@ -2,11 +2,14 @@
 set -eu
 
 required_variables="
-KC_DB_URL_HOST
-KC_DB_URL_DATABASE
-KC_DB_USERNAME
-KC_DB_PASSWORD
-KC_HOSTNAME
+DB_HOST
+DB_PORT
+DB_DATABASE
+DB_USERNAME
+DB_PASSWORD
+KC_DB_SCHEMA
+AUTH_PUBLIC_ORIGIN
+KEYCLOAK_PORT
 KC_BOOTSTRAP_ADMIN_USER
 KC_BOOTSTRAP_ADMIN_PASSWORD
 "
@@ -18,6 +21,42 @@ for variable in $required_variables; do
     exit 1
   fi
 done
+
+# Keycloak comparte la conexión PostgreSQL DB_* del launcher. Solo mantiene un
+# schema propio, configurable mediante KC_DB_SCHEMA.
+export KC_DB_URL_HOST="$DB_HOST"
+export KC_DB_URL_PORT="$DB_PORT"
+export KC_DB_URL_DATABASE="$DB_DATABASE"
+export KC_DB_USERNAME="$DB_USERNAME"
+export KC_DB_PASSWORD="$DB_PASSWORD"
+
+# Si no existe un override, el hostname público se deriva del origen común y
+# del puerto publicado de Keycloak.
+public_origin=${AUTH_PUBLIC_ORIGIN%/}
+case "$public_origin" in
+  http://*|https://*) ;;
+  *)
+    echo "AUTH_PUBLIC_ORIGIN must be an HTTP(S) origin" >&2
+    exit 1
+    ;;
+esac
+origin_authority=${public_origin#*://}
+case "$origin_authority" in
+  */*|*@*|*:*|*\?*|*\#*)
+    echo "AUTH_PUBLIC_ORIGIN must not contain credentials, port, path, query or fragment" >&2
+    exit 1
+    ;;
+esac
+
+case "$public_origin:$KEYCLOAK_PORT" in
+  http://*:80|https://*:443)
+    default_keycloak_hostname=$public_origin
+    ;;
+  *)
+    default_keycloak_hostname="$public_origin:$KEYCLOAK_PORT"
+    ;;
+esac
+export KC_HOSTNAME=${KC_HOSTNAME:-$default_keycloak_hostname}
 
 # El tema utiliza el mismo entorno general del launcher. Solo se publican los
 # valores conocidos y en produccion la etiqueta permanece oculta.

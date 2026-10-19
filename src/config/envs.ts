@@ -17,14 +17,16 @@ interface EnvVars {
   WEB_AUTH_ENABLED: boolean;
   WEB_AUTH_ALLOW_INSECURE_HTTP: boolean;
   ENVIRONMENT?: string;
-  OIDC_ISSUER?: string;
+  AUTH_PUBLIC_ORIGIN?: string;
+  AUTH_HUB_PORT?: string;
+  CALLBACK_PATH?: string;
+  KEYCLOAK_PORT?: string;
+  KC_HOSTNAME?: string;
   OIDC_INTERNAL_BASE_URL?: string;
   OIDC_HUB_TOOL_KEY?: string;
   OIDC_HUB_CLIENT_ID?: string;
   OIDC_HUB_CLIENT_SECRET?: string;
-  OIDC_HUB_CALLBACK_URL?: string;
-  OIDC_HUB_POST_LOGOUT_REDIRECT_URL?: string;
-  WEB_CLIENT_CATALOG?: string;
+  AUTH_TOOL_CLIENTS?: string;
   WEB_REDIS_HOST?: string;
   WEB_REDIS_PORT?: string;
   WEB_REDIS_PASSWORD?: string;
@@ -53,14 +55,16 @@ const envsSchema = joi
     WEB_AUTH_ENABLED: joi.boolean().default(false),
     WEB_AUTH_ALLOW_INSECURE_HTTP: joi.boolean().default(false),
     ENVIRONMENT: joi.string().allow('').optional(),
-    OIDC_ISSUER: joi.string().allow('').optional(),
+    AUTH_PUBLIC_ORIGIN: joi.string().allow('').optional(),
+    AUTH_HUB_PORT: joi.string().allow('').optional(),
+    CALLBACK_PATH: joi.string().allow('').optional(),
+    KEYCLOAK_PORT: joi.string().allow('').optional(),
+    KC_HOSTNAME: joi.string().allow('').optional(),
     OIDC_INTERNAL_BASE_URL: joi.string().allow('').optional(),
     OIDC_HUB_TOOL_KEY: joi.string().allow('').optional(),
     OIDC_HUB_CLIENT_ID: joi.string().allow('').optional(),
     OIDC_HUB_CLIENT_SECRET: joi.string().allow('').optional(),
-    OIDC_HUB_CALLBACK_URL: joi.string().allow('').optional(),
-    OIDC_HUB_POST_LOGOUT_REDIRECT_URL: joi.string().allow('').optional(),
-    WEB_CLIENT_CATALOG: joi.string().allow('').optional(),
+    AUTH_TOOL_CLIENTS: joi.string().allow('').optional(),
     WEB_REDIS_HOST: joi.string().allow('').optional(),
     WEB_REDIS_PORT: joi.string().allow('').optional(),
     WEB_REDIS_PASSWORD: joi.string().allow('').optional(),
@@ -113,14 +117,16 @@ export interface WebAuthEnv {
   enabled: boolean;
   allowInsecureHttp?: boolean;
   environment?: string;
-  issuer?: string;
+  publicOrigin?: string;
+  keycloakPort?: string;
+  keycloakHostname?: string;
+  hubPort?: string;
+  callbackPath?: string;
   internalBaseUrl?: string;
   hubToolKey?: string;
   hubClientId?: string;
   hubClientSecret?: string;
-  callbackUrl?: string;
-  postLogoutRedirectUrl?: string;
-  clientCatalog?: string;
+  toolClients?: string;
   redisHost?: string;
   redisPort?: string;
   redisPassword?: string;
@@ -135,14 +141,16 @@ export const WebAuthEnvs: Readonly<WebAuthEnv> = Object.freeze({
   enabled: envVars.WEB_AUTH_ENABLED,
   allowInsecureHttp: envVars.WEB_AUTH_ALLOW_INSECURE_HTTP,
   environment: envVars.ENVIRONMENT,
-  issuer: envVars.OIDC_ISSUER,
+  publicOrigin: envVars.AUTH_PUBLIC_ORIGIN,
+  keycloakPort: envVars.KEYCLOAK_PORT,
+  keycloakHostname: envVars.KC_HOSTNAME,
+  hubPort: envVars.AUTH_HUB_PORT,
+  callbackPath: envVars.CALLBACK_PATH,
   internalBaseUrl: envVars.OIDC_INTERNAL_BASE_URL,
   hubToolKey: envVars.OIDC_HUB_TOOL_KEY,
   hubClientId: envVars.OIDC_HUB_CLIENT_ID,
   hubClientSecret: envVars.OIDC_HUB_CLIENT_SECRET,
-  callbackUrl: envVars.OIDC_HUB_CALLBACK_URL,
-  postLogoutRedirectUrl: envVars.OIDC_HUB_POST_LOGOUT_REDIRECT_URL,
-  clientCatalog: envVars.WEB_CLIENT_CATALOG,
+  toolClients: envVars.AUTH_TOOL_CLIENTS,
   redisHost: envVars.WEB_REDIS_HOST,
   redisPort: envVars.WEB_REDIS_PORT,
   redisPassword: envVars.WEB_REDIS_PASSWORD,

@@ -4,12 +4,11 @@ import { createWebAuthConfig } from './auth.config';
 const valid = {
   enabled: true,
   environment: 'dev',
-  issuer: 'http://localhost:8080/realms/muserpol',
-  callbackUrl: 'http://localhost:3001/callback',
-  postLogoutRedirectUrl: 'http://localhost:3001/',
+  publicOrigin: 'http://localhost',
+  callbackPath: '/callback',
   hubClientSecret: 'test-secret',
   redisPassword: 'test-redis-password',
-  clientCatalog: '{}',
+  toolClients: '{}',
 };
 
 describe('web auth configuration', () => {
@@ -17,7 +16,7 @@ describe('web auth configuration', () => {
     expect(
       createWebAuthConfig({
         enabled: false,
-        clientCatalog: '{invalid',
+        toolClients: '{invalid',
       }),
     ).toBeNull();
   });
@@ -25,7 +24,7 @@ describe('web auth configuration', () => {
     const config = createWebAuthConfig({
       ...valid,
       hubClientId: 'hub-interface',
-      clientCatalog: JSON.stringify({
+      toolClients: JSON.stringify({
         beneficiary: {
           clientId: 'beneficiary-interface',
         },
@@ -46,16 +45,28 @@ describe('web auth configuration', () => {
       'Web tool is not configured',
     );
   });
-  it('preserves the exact post logout redirect URL', () => {
+  it('derives the OIDC URLs from the public origin', () => {
+    expect(createWebAuthConfig(valid)?.issuer).toBe(
+      'http://localhost:8080/realms/muserpol',
+    );
+    expect(createWebAuthConfig(valid)?.callbackUrl).toBe(
+      'http://localhost:3001/callback',
+    );
     expect(createWebAuthConfig(valid)?.postLogoutRedirectUrl).toBe(
       'http://localhost:3001/',
     );
     expect(
       createWebAuthConfig({
         ...valid,
-        postLogoutRedirectUrl: 'http://localhost:3001/signed-out/',
-      })?.postLogoutRedirectUrl,
-    ).toBe('http://localhost:3001/signed-out/');
+        keycloakPort: '9080',
+        hubPort: '4001',
+        callbackPath: '/custom/callback',
+      }),
+    ).toMatchObject({
+      issuer: 'http://localhost:9080/realms/muserpol',
+      callbackUrl: 'http://localhost:4001/custom/callback',
+      postLogoutRedirectUrl: 'http://localhost:4001/',
+    });
   });
   it('uses fixed Hub, Redis and session defaults', () => {
     expect(createWebAuthConfig(valid)).toMatchObject({
@@ -105,8 +116,9 @@ describe('web auth configuration', () => {
   it('rejects invalid URLs without echoing input secrets', () => {
     const secret = 'do-not-print-this';
     for (const env of [
-      { ...valid, issuer: `https://${secret}@example.test/realm` },
-      { ...valid, callbackUrl: `not-a-url-${secret}` },
+      { ...valid, publicOrigin: `https://${secret}@example.test` },
+      { ...valid, publicOrigin: 'http://localhost:9999' },
+      { ...valid, callbackPath: `not-a-path-${secret}` },
     ]) {
       try {
         createWebAuthConfig(env);
@@ -129,8 +141,8 @@ describe('web auth configuration', () => {
       }),
     ).toMatchObject({
       environment: 'prod',
-      issuer: valid.issuer,
-      callbackUrl: valid.callbackUrl,
+      issuer: 'http://localhost:8080/realms/muserpol',
+      callbackUrl: 'http://localhost:3001/callback',
     });
   });
   it('uses the approved refresh margin and session durations', () => {

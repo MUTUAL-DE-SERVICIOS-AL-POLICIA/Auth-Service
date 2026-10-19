@@ -11,9 +11,8 @@ import { RpcException } from '@nestjs/microservices';
 const enabled = {
   enabled: true,
   environment: 'dev',
-  issuer: 'http://localhost:8080/realms/muserpol',
-  callbackUrl: 'http://localhost:3001/callback',
-  postLogoutRedirectUrl: 'http://localhost:3001/',
+  publicOrigin: 'http://localhost',
+  callbackPath: '/callback',
   hubToolKey: 'hub',
   hubClientId: 'hub',
   hubClientSecret: 'hub-secret-for-test',
