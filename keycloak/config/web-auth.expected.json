@@ -1,0 +1,61 @@
+{
+  "realm": "muserpol",
+  "clients": [
+    {
+      "clientId": "hub-interface",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "authorizationServicesEnabled": true,
+      "resources": [
+        {
+          "name": "beneficiary-interface",
+          "scopes": [
+            "launch"
+          ]
+        },
+        {
+          "name": "sales-interface",
+          "scopes": [
+            "launch"
+          ]
+        },
+        {
+          "name": "collections-interface",
+          "scopes": [
+            "launch"
+          ]
+        }
+      ],
+      "directAccessGrantsEnabled": false
+    },
+    {
+      "clientId": "beneficiary-interface",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "authorizationServicesEnabled": true,
+      "clientRoles": [
+        "user"
+      ]
+    },
+    {
+      "clientId": "sales-interface",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "authorizationServicesEnabled": true,
+      "clientRoles": [
+        "user"
+      ]
+    },
+    {
+      "clientId": "collections-interface",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "authorizationServicesEnabled": true,
+      "clientRoles": [
+        "user"
+      ]
+    }
+  ],
+  "requireLdap": true
+}

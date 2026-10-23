@@ -1,7 +1,7 @@
 import { Global, Module } from '@nestjs/common';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { NATS_SERVICE, NastEnvs } from 'src/config';
-import { NatsService, LdapService } from 'src/common';
+import { LdapService, NatsService } from 'src/common';
 @Global()
 @Module({
   imports: [

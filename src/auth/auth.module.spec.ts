@@ -1,0 +1,60 @@
+/// <reference types="jest" />
+import { Test } from '@nestjs/testing';
+import { AuthModule } from './auth.module';
+import {
+  RedisService,
+  StoreUnavailableError,
+} from '../common/services/redis.service';
+import { AuthController } from './auth.controller';
+import { RpcException } from '@nestjs/microservices';
+
+const enabled = {
+  enabled: true,
+  environment: 'dev',
+  publicOrigin: 'http://localhost',
+  callbackPath: '/callback',
+  hubToolKey: 'hub',
+  hubClientId: 'hub',
+  hubClientSecret: 'hub-secret-for-test',
+  redisHost: '127.0.0.1',
+  redisPort: '1',
+  redisKeyPrefix: 'web',
+  redisPassword: 'test-redis-password',
+};
+
+describe('AuthModule isolation', () => {
+  it('initializes while disabled without Redis configuration', async () => {
+    const module = await Test.createTestingModule({
+      imports: [AuthModule.register({ enabled: false })],
+    }).compile();
+    await expect(module.init()).resolves.toBeDefined();
+    const controller = module.get(AuthController);
+    try {
+      await controller.start({
+        returnPath: '/apphub',
+        browserBinding: 'a'.repeat(43),
+      });
+      throw new Error('expected disabled response');
+    } catch (error) {
+      expect(error).toBeInstanceOf(RpcException);
+      expect((error as RpcException).getError()).toEqual({
+        error: {
+          code: 'WEB_AUTH_DISABLED',
+          message: 'Web authentication is disabled',
+        },
+      });
+    }
+    await module.close();
+  });
+  it('initializes while Redis is absent and fails only a web operation', async () => {
+    const module = await Test.createTestingModule({
+      imports: [AuthModule.register(enabled)],
+    }).compile();
+    await expect(module.init()).resolves.toBeDefined();
+    const redis = module.get(RedisService);
+    await expect(
+      redis.execute((client) => client.ping()),
+    ).rejects.toBeInstanceOf(StoreUnavailableError);
+    await module.close();
+  });
+});
