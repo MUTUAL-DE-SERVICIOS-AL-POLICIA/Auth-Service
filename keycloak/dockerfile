@@ -1,0 +1,8 @@
+FROM quay.io/keycloak/keycloak:26.0.1
+
+# El tema forma parte de la imagen para que el despliegue no dependa de un bind mount.
+COPY --chown=keycloak:keycloak keycloak.conf /opt/keycloak/conf/keycloak.conf
+COPY --chown=keycloak:keycloak keycloak-entrypoint.sh /opt/keycloak/bin/muserpol-keycloak-entrypoint
+COPY --chown=keycloak:keycloak themes /opt/keycloak/themes
+
+ENTRYPOINT ["/opt/keycloak/bin/muserpol-keycloak-entrypoint"]

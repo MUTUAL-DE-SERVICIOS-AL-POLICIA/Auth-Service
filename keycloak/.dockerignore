@@ -1,0 +1,6 @@
+*
+!dockerfile
+!keycloak.conf
+!keycloak-entrypoint.sh
+!themes/
+!themes/**
